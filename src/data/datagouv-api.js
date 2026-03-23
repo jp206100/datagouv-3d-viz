@@ -71,15 +71,19 @@ function worstSeverity(a, b) {
   return (SEVERITY_PRIORITY[a] || 2) < (SEVERITY_PRIORITY[b] || 2) ? a : b;
 }
 
-export async function fetchAccidentDataForYear(year, onProgress) {
-  if (!onProgress) onProgress = function(){};
+/**
+ * Fetch a single year's accident data via the tabular API.
+ * Calls onStatus({ year, records, phase }) for live feedback.
+ */
+export async function fetchAccidentDataForYear(year, onStatus) {
+  if (!onStatus) onStatus = function(){};
   var resources = await getDatasetResources(BAAC_DATASET_ID);
 
-  // Find caracteristiques resource
   var caracResource = findResource(resources, 'caract', year);
   if (!caracResource) throw new Error('No data found for year ' + year);
 
   // Fetch caracteristiques via tabular API
+  onStatus({ year: year, phase: 'accidents', records: 0 });
   var allCaracRows = [];
   var page = 1, hasMore = true;
   while (hasMore && page <= 100) {
@@ -88,14 +92,15 @@ export async function fetchAccidentDataForYear(year, onProgress) {
     allCaracRows.push.apply(allCaracRows, rows);
     hasMore = rows.length === 200;
     page++;
-    onProgress(Math.min(page, 100) / 200); // first half of progress
+    onStatus({ year: year, phase: 'accidents', records: allCaracRows.length });
   }
 
   // Try to fetch usagers for severity data
   var severityByAcc = {};
   var usagersResource = findResource(resources, 'usager', year);
   if (usagersResource) {
-    var uPage = 1, uHasMore = true;
+    var uPage = 1, uHasMore = true, uCount = 0;
+    onStatus({ year: year, phase: 'severity', records: allCaracRows.length });
     while (uHasMore && uPage <= 100) {
       var uResult = await queryResource(usagersResource.id, { page: uPage, pageSize: 200 });
       var uRows = uResult.data || [];
@@ -104,9 +109,10 @@ export async function fetchAccidentDataForYear(year, onProgress) {
         var grav = SEVERITY_MAP[String(uRows[u].grav || '').trim()] || 'minor';
         severityByAcc[accId] = worstSeverity(severityByAcc[accId], grav);
       }
+      uCount += uRows.length;
       uHasMore = uRows.length === 200;
       uPage++;
-      onProgress(0.5 + Math.min(uPage, 100) / 200); // second half of progress
+      onStatus({ year: year, phase: 'severity', records: allCaracRows.length, usagers: uCount });
     }
   }
 
@@ -120,30 +126,38 @@ export async function fetchAccidentDataForYear(year, onProgress) {
  * Load pre-fetched accident data from /data/accidents.json.
  * Run `npm run fetch-data` to generate this file.
  */
-export async function loadCachedAccidentData(onProgress) {
-  if (!onProgress) onProgress = function(){};
-  onProgress(0.1);
+export async function loadCachedAccidentData(onStatus) {
+  if (!onStatus) onStatus = function(){};
+  onStatus({ phase: 'cache', message: 'Loading cached data...' });
   var res = await fetch('/data/accidents.json');
   if (!res.ok) return null;
-  onProgress(0.5);
+  onStatus({ phase: 'cache', message: 'Parsing JSON...' });
   var data = await res.json();
-  onProgress(1.0);
+  onStatus({ phase: 'done', records: data.length });
   return data;
 }
 
 /**
- * Load accident data: try cached JSON first, then fall back to API.
- * For full data, run `npm run fetch-data` first.
+ * Load accident data with streaming callbacks.
+ * onStatus receives objects like:
+ *   { phase: 'cache', message: '...' }
+ *   { phase: 'api', year: 2023, yearIndex: 0, totalYears: 2, records: 1234 }
+ *   { phase: 'done', records: 5678 }
+ *
+ * onYearData(records) is called each time a year's data finishes,
+ * allowing progressive rendering.
  */
-export async function loadAccidentData(onProgress) {
-  if (!onProgress) onProgress = function(){};
+export async function loadAccidentData(onStatus, onYearData) {
+  if (!onStatus) onStatus = function(){};
+  if (!onYearData) onYearData = function(){};
 
   // Try pre-fetched data first
   try {
-    var cached = await loadCachedAccidentData(function(p) { onProgress(p * 0.9); });
+    var cached = await loadCachedAccidentData(onStatus);
     if (cached && cached.length > 0) {
       console.log('Loaded ' + cached.length + ' cached accident records');
-      onProgress(1.0);
+      onYearData(cached);
+      onStatus({ phase: 'done', records: cached.length });
       return cached;
     }
   } catch (e) {
@@ -153,20 +167,30 @@ export async function loadAccidentData(onProgress) {
   // Fall back to fetching recent years via API (limited by pagination)
   console.log('Fetching accident data from API (limited subset)...');
   var allRecords = [];
-  var yearsToFetch = [2022, 2023];
+  var yearsToFetch = [2023, 2022, 2021, 2020, 2019];
   for (var i = 0; i < yearsToFetch.length; i++) {
     var year = yearsToFetch[i];
     try {
-      var yearData = await fetchAccidentDataForYear(year, function(p) {
-        onProgress((i + p) / yearsToFetch.length * 0.9);
+      var yearData = await fetchAccidentDataForYear(year, function(info) {
+        onStatus({
+          phase: 'api',
+          year: info.year,
+          yearPhase: info.phase,
+          yearIndex: i,
+          totalYears: yearsToFetch.length,
+          records: allRecords.length + (info.records || 0),
+          usagers: info.usagers || 0,
+        });
       });
       allRecords.push.apply(allRecords, yearData);
       console.log('Fetched ' + yearData.length + ' records for ' + year);
+      // Deliver each year's data for progressive rendering
+      onYearData(yearData);
     } catch (err) {
       console.warn('Could not fetch year ' + year + ':', err.message);
     }
   }
-  onProgress(1.0);
+  onStatus({ phase: 'done', records: allRecords.length });
   return allRecords;
 }
 
