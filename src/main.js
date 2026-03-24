@@ -96,7 +96,7 @@ async function init() {
 
   setLoadingProgress(10);
   state.scene.add(await createFranceOutline());
-  state.scene.add(createFranceRoads());
+  try { state.scene.add(createFranceRoads()); } catch (e) { console.warn('Roads layer failed:', e); }
   state.pulseWaves = createPulseWaves(state.scene);
   updateAtmosphere(state.scene, state.currentHour);
   updateTimeUI(state.currentHour);
