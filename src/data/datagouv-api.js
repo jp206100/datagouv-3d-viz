@@ -1,5 +1,4 @@
 var DATAGOUV_API = 'https://www.data.gouv.fr/api/1';
-var TABULAR_API = 'https://tabular-api.data.gouv.fr/api';
 var MCP_ENDPOINT = 'https://mcp.data.gouv.fr/mcp';
 var BAAC_DATASET_ID = '53698f4ca3a729239d2036df';
 
@@ -8,19 +7,53 @@ var SEVERITY_PRIORITY = { fatal: 0, hospitalized: 1, minor: 2 };
 var LIGHTING_MAP = { '1': 'day', '2': 'dusk', '3': 'night_unlit', '4': 'night_lit', '5': 'night_unlit' };
 var WEATHER_MAP = { '1': 'normal', '2': 'rain', '3': 'rain_heavy', '4': 'snow', '5': 'fog', '6': 'wind', '7': 'glare', '8': 'overcast', '9': 'other' };
 
+/* ── Dataset resource discovery ──────────────────────── */
+
+var _resourcesCache = null;
+
 export async function getDatasetResources(datasetId) {
+  if (_resourcesCache) return _resourcesCache;
   var res = await fetch(DATAGOUV_API + '/datasets/' + datasetId + '/');
   if (!res.ok) throw new Error('Dataset fetch failed: ' + res.status);
-  return (await res.json()).resources || [];
+  _resourcesCache = (await res.json()).resources || [];
+  return _resourcesCache;
 }
 
-export async function queryResource(resourceId, opts) {
-  var page = (opts && opts.page) || 1;
-  var pageSize = (opts && opts.pageSize) || 100;
-  var res = await fetch(TABULAR_API + '/resources/' + resourceId + '/data/?page=' + page + '&page_size=' + pageSize);
-  if (!res.ok) throw new Error('Tabular query failed: ' + res.status);
-  return res.json();
+function findResource(resources, keyword, year) {
+  var yearStr = String(year);
+  var twoDigit = yearStr.slice(2);
+  return resources.find(function(r) {
+    var name = (r.title || r.url || '').toLowerCase();
+    return (name.includes(keyword)) &&
+      (name.includes(yearStr) || name.includes('-' + twoDigit + '.') || name.includes('_' + twoDigit + '.') || name.includes('-' + twoDigit + '-')) &&
+      (name.endsWith('.csv') || r.format === 'csv');
+  });
 }
+
+/* ── CSV parser (runs in browser) ────────────────────── */
+
+function parseCSV(text) {
+  var lines = text.split('\n');
+  if (lines.length < 2) return [];
+  var delimiter = lines[0].includes(';') ? ';' : ',';
+  var headers = lines[0].split(delimiter).map(function(h) {
+    return h.trim().replace(/^["'\uFEFF]+|["']+$/g, '').toLowerCase();
+  });
+  var rows = [];
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var values = line.split(delimiter).map(function(v) { return v.trim().replace(/^"|"$/g, ''); });
+    var row = {};
+    for (var j = 0; j < headers.length; j++) {
+      row[headers[j]] = values[j] || '';
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+/* ── Row parsing ─────────────────────────────────────── */
 
 function parseYearField(raw, fallbackYear) {
   var n = parseInt(raw);
@@ -54,26 +87,24 @@ function parseRow(row, fallbackYear, severityOverride) {
   };
 }
 
-function findResource(resources, keyword, year) {
-  var yearStr = String(year);
-  var twoDigit = yearStr.slice(2);
-  return resources.find(function(r) {
-    var name = (r.title || r.url || '').toLowerCase();
-    return (name.includes(keyword)) &&
-      (name.includes(yearStr) || name.includes('-' + twoDigit + '.') || name.includes('_' + twoDigit + '.')) &&
-      (name.endsWith('.csv') || r.format === 'csv');
-  });
-}
-
 function worstSeverity(a, b) {
   if (!a) return b;
   if (!b) return a;
   return (SEVERITY_PRIORITY[a] || 2) < (SEVERITY_PRIORITY[b] || 2) ? a : b;
 }
 
+/* ── Direct CSV download (replaces paginated tabular API) ── */
+
+async function downloadCSV(resource) {
+  var url = resource.url || resource.latest;
+  var res = await fetch(url);
+  if (!res.ok) throw new Error('CSV download failed: ' + res.status);
+  return res.text();
+}
+
 /**
- * Fetch a single year's accident data via the tabular API.
- * Calls onStatus({ year, records, phase }) for live feedback.
+ * Fetch a single year by downloading CSV files directly.
+ * Downloads carac + usagers in parallel — just 2 HTTP requests per year.
  */
 export async function fetchAccidentDataForYear(year, onStatus) {
   if (!onStatus) onStatus = function(){};
@@ -81,51 +112,40 @@ export async function fetchAccidentDataForYear(year, onStatus) {
 
   var caracResource = findResource(resources, 'caract', year);
   if (!caracResource) throw new Error('No data found for year ' + year);
-
-  // Fetch caracteristiques via tabular API
-  onStatus({ year: year, phase: 'accidents', records: 0 });
-  var allCaracRows = [];
-  var page = 1, hasMore = true;
-  while (hasMore && page <= 100) {
-    var result = await queryResource(caracResource.id, { page: page, pageSize: 200 });
-    var rows = result.data || [];
-    allCaracRows.push.apply(allCaracRows, rows);
-    hasMore = rows.length === 200;
-    page++;
-    onStatus({ year: year, phase: 'accidents', records: allCaracRows.length });
-  }
-
-  // Try to fetch usagers for severity data
-  var severityByAcc = {};
   var usagersResource = findResource(resources, 'usager', year);
-  if (usagersResource) {
-    var uPage = 1, uHasMore = true, uCount = 0;
-    onStatus({ year: year, phase: 'severity', records: allCaracRows.length });
-    while (uHasMore && uPage <= 100) {
-      var uResult = await queryResource(usagersResource.id, { page: uPage, pageSize: 200 });
-      var uRows = uResult.data || [];
-      for (var u = 0; u < uRows.length; u++) {
-        var accId = uRows[u].num_acc || uRows[u].Num_Acc || '';
-        var grav = SEVERITY_MAP[String(uRows[u].grav || '').trim()] || 'minor';
-        severityByAcc[accId] = worstSeverity(severityByAcc[accId], grav);
-      }
-      uCount += uRows.length;
-      uHasMore = uRows.length === 200;
-      uPage++;
-      onStatus({ year: year, phase: 'severity', records: allCaracRows.length, usagers: uCount });
+
+  // Download both CSVs in parallel
+  onStatus({ year: year, phase: 'downloading' });
+  var downloads = [downloadCSV(caracResource)];
+  if (usagersResource) downloads.push(downloadCSV(usagersResource));
+  var results = await Promise.all(downloads);
+
+  // Parse CSVs
+  onStatus({ year: year, phase: 'parsing' });
+  var caracRows = parseCSV(results[0]);
+
+  // Build severity map from usagers
+  var severityByAcc = {};
+  if (results[1]) {
+    var usagersRows = parseCSV(results[1]);
+    for (var u = 0; u < usagersRows.length; u++) {
+      var accId = usagersRows[u].num_acc || usagersRows[u]['num_acc'] || '';
+      var grav = SEVERITY_MAP[String(usagersRows[u].grav || '').trim()] || 'minor';
+      severityByAcc[accId] = worstSeverity(severityByAcc[accId], grav);
     }
   }
 
-  return allCaracRows.map(function(row) {
-    var accId = row.num_acc || row.Num_Acc || '';
+  var parsed = caracRows.map(function(row) {
+    var accId = row.num_acc || row['num_acc'] || '';
     return parseRow(row, year, severityByAcc[accId]);
   }).filter(Boolean);
+
+  onStatus({ year: year, phase: 'done', records: parsed.length });
+  return parsed;
 }
 
-/**
- * Load pre-fetched accident data from /data/accidents.json.
- * Run `npm run fetch-data` to generate this file.
- */
+/* ── Cached data loader ──────────────────────────────── */
+
 export async function loadCachedAccidentData(onStatus) {
   if (!onStatus) onStatus = function(){};
   onStatus({ phase: 'cache', message: 'Loading cached data...' });
@@ -137,13 +157,10 @@ export async function loadCachedAccidentData(onStatus) {
   return data;
 }
 
+/* ── Main entry point ────────────────────────────────── */
+
 /**
  * Load accident data with streaming callbacks.
- * onStatus receives objects like:
- *   { phase: 'cache', message: '...' }
- *   { phase: 'api', year: 2023, yearIndex: 0, totalYears: 2, records: 1234 }
- *   { phase: 'done', records: 5678 }
- *
  * onYearData(records) is called each time a year's data finishes,
  * allowing progressive rendering.
  */
@@ -161,13 +178,13 @@ export async function loadAccidentData(onStatus, onYearData) {
       return cached;
     }
   } catch (e) {
-    console.log('No cached data, falling back to API fetch');
+    console.log('No cached data, falling back to CSV download');
   }
 
-  // Fall back to fetching recent years via API (limited by pagination)
-  console.log('Fetching accident data from API (limited subset)...');
+  // Fall back to downloading CSVs directly (2 requests per year)
+  console.log('Downloading accident CSVs from data.gouv.fr...');
   var allRecords = [];
-  var yearsToFetch = [2023, 2022, 2021, 2020, 2019];
+  var yearsToFetch = [2023, 2022];
   for (var i = 0; i < yearsToFetch.length; i++) {
     var year = yearsToFetch[i];
     try {
@@ -179,12 +196,10 @@ export async function loadAccidentData(onStatus, onYearData) {
           yearIndex: i,
           totalYears: yearsToFetch.length,
           records: allRecords.length + (info.records || 0),
-          usagers: info.usagers || 0,
         });
       });
       allRecords.push.apply(allRecords, yearData);
       console.log('Fetched ' + yearData.length + ' records for ' + year);
-      // Deliver each year's data for progressive rendering
       onYearData(yearData);
     } catch (err) {
       console.warn('Could not fetch year ' + year + ':', err.message);
@@ -193,6 +208,8 @@ export async function loadAccidentData(onStatus, onYearData) {
   onStatus({ phase: 'done', records: allRecords.length });
   return allRecords;
 }
+
+/* ── MCP helpers ─────────────────────────────────────── */
 
 export async function callMCP(method, params) {
   var res = await fetch(MCP_ENDPOINT, {
