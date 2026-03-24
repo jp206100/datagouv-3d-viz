@@ -109,15 +109,72 @@ function buildTubeRoutes(routes, color, opacity, radius) {
   return group;
 }
 
+const CITIES = [
+  [48.86, 2.35, 'Paris'],
+  [45.76, 4.84, 'Lyon'],
+  [43.30, 5.37, 'Marseille'],
+  [43.60, 1.44, 'Toulouse'],
+  [43.71, 7.26, 'Nice'],
+  [47.22, -1.55, 'Nantes'],
+  [48.57, 7.75, 'Strasbourg'],
+  [44.84, -0.58, 'Bordeaux'],
+  [50.63, 3.06, 'Lille'],
+  [48.11, -1.68, 'Rennes'],
+  [47.39, 0.69, 'Tours'],
+  [45.78, 3.08, 'Clermont-Fd'],
+  [47.32, 5.04, 'Dijon'],
+  [49.25, 3.88, 'Reims'],
+  [49.18, -0.37, 'Caen'],
+  [48.39, -4.49, 'Brest'],
+  [43.49, -1.47, 'Bayonne'],
+  [42.70, 2.90, 'Perpignan'],
+  [43.61, 3.88, 'Montpellier'],
+  [47.75, 7.34, 'Mulhouse'],
+];
+
+function makeTextSprite(text) {
+  var canvas = document.createElement('canvas');
+  var ctx = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 64;
+  ctx.font = '600 28px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 32);
+  var texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  var mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  var sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2.5, 0.625, 1);
+  return sprite;
+}
+
+function createCityLabels() {
+  var group = new THREE.Group();
+  for (var i = 0; i < CITIES.length; i++) {
+    var city = CITIES[i];
+    var p = latLngToScene(city[0], city[1]);
+    var sprite = makeTextSprite(city[2]);
+    sprite.position.set(p.x, 0.6, p.z);
+    group.add(sprite);
+  }
+  group.name = 'city-labels';
+  return group;
+}
+
 export function createFranceRoads() {
   var group = new THREE.Group();
   group.name = 'france-roads';
 
-  // Autoroutes: fat white tubes for testing
-  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.9, 0.15));
+  // Autoroutes
+  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.85, 0.112));
 
-  // National routes: slightly thinner white tubes
-  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.7, 0.10));
+  // National routes
+  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.85, 0.075));
+
+  // City labels
+  group.add(createCityLabels());
 
   return group;
 }
