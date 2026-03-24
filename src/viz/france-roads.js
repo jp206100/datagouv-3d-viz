@@ -111,11 +111,11 @@ export function createFranceRoads() {
   var group = new THREE.Group();
   group.name = 'france-roads';
 
-  // Autoroutes: subtle but readable
-  group.add(buildLines(AUTOROUTES, 0x4a5060, 0.35));
+  // Autoroutes: bright white for testing visibility
+  group.add(buildLines(AUTOROUTES, 0xffffff, 0.9));
 
-  // National routes: barely perceptible
-  group.add(buildLines(ROUTES_NATIONALES, 0x3a3f4c, 0.20));
+  // National routes: bright white for testing visibility
+  group.add(buildLines(ROUTES_NATIONALES, 0xffffff, 0.7));
 
   return group;
 }
