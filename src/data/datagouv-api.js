@@ -63,9 +63,14 @@ function parseYearField(raw, fallbackYear) {
   return fallbackYear;
 }
 
+function parseCoord(val) {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(',', '.'));
+}
+
 function parseRow(row, fallbackYear, severityOverride) {
-  var lat = parseFloat(row.lat || 0);
-  var lng = parseFloat(row.long || 0);
+  var lat = parseCoord(row.lat);
+  var lng = parseCoord(row.long);
   if (!lat || !lng) return null;
   if (Math.abs(lat) > 90) lat = lat / 100000;
   if (Math.abs(lng) > 180) lng = lng / 100000;
