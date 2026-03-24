@@ -135,18 +135,26 @@ const CITIES = [
 function makeTextSprite(text) {
   var canvas = document.createElement('canvas');
   var ctx = canvas.getContext('2d');
-  canvas.width = 256;
-  canvas.height = 64;
-  ctx.font = '600 28px sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  canvas.width = 512;
+  canvas.height = 128;
+  ctx.font = '700 48px sans-serif';
+  ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, 128, 32);
+  ctx.fillText(text, 256, 64);
   var texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
-  var mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  var mat = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    fog: false,
+    opacity: 0.85,
+  });
   var sprite = new THREE.Sprite(mat);
-  sprite.scale.set(2.5, 0.625, 1);
+  sprite.scale.set(5, 1.25, 1);
+  sprite.renderOrder = 999;
   return sprite;
 }
 
@@ -156,7 +164,7 @@ function createCityLabels() {
     var city = CITIES[i];
     var p = latLngToScene(city[0], city[1]);
     var sprite = makeTextSprite(city[2]);
-    sprite.position.set(p.x, 0.6, p.z);
+    sprite.position.set(p.x, 1.2, p.z);
     group.add(sprite);
   }
   group.name = 'city-labels';
