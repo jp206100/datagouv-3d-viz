@@ -86,26 +86,25 @@ const ROUTES_NATIONALES = [
   [[47.39,0.69],[47.08,2.40]],
 ];
 
-function buildLineSegments(routes, color, opacity, linewidth) {
-  var positions = [];
+function buildLines(routes, color, opacity) {
+  var group = new THREE.Group();
   for (var i = 0; i < routes.length; i++) {
     var route = routes[i];
-    for (var j = 0; j < route.length - 1; j++) {
-      var a = latLngToScene(route[j][0], route[j][1]);
-      var b = latLngToScene(route[j + 1][0], route[j + 1][1]);
-      positions.push(a.x, 0.005, a.z, b.x, 0.005, b.z);
+    var points = [];
+    for (var j = 0; j < route.length; j++) {
+      var p = latLngToScene(route[j][0], route[j][1]);
+      points.push(new THREE.Vector3(p.x, 0.005, p.z));
     }
+    var geom = new THREE.BufferGeometry().setFromPoints(points);
+    var mat = new THREE.LineBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: opacity,
+      depthWrite: false,
+    });
+    group.add(new THREE.Line(geom, mat));
   }
-  var geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  var mat = new THREE.LineBasicMaterial({
-    color: color,
-    transparent: true,
-    opacity: opacity,
-    linewidth: linewidth,
-    depthWrite: false,
-  });
-  return new THREE.LineSegments(geom, mat);
+  return group;
 }
 
 export function createFranceRoads() {
@@ -113,10 +112,10 @@ export function createFranceRoads() {
   group.name = 'france-roads';
 
   // Autoroutes: subtle but readable
-  group.add(buildLineSegments(AUTOROUTES, 0x3a3f4c, 0.28, 1.0));
+  group.add(buildLines(AUTOROUTES, 0x4a5060, 0.35));
 
   // National routes: barely perceptible
-  group.add(buildLineSegments(ROUTES_NATIONALES, 0x2a2e38, 0.15, 1.0));
+  group.add(buildLines(ROUTES_NATIONALES, 0x3a3f4c, 0.20));
 
   return group;
 }
