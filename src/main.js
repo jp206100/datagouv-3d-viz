@@ -143,15 +143,18 @@ async function init() {
       } else if (info.phase === 'api') {
         var yearPct = ((info.yearIndex || 0) / (info.totalYears || 1)) * 80;
         setLoadingProgress(15 + yearPct);
-        if (info.yearPhase === 'accidents') {
-          setLoadingText('FETCHING ' + info.year + ' ACCIDENTS');
-          setLoadingDetail(formatNum(info.records) + ' records loaded');
-        } else if (info.yearPhase === 'severity') {
-          setLoadingText('FETCHING ' + info.year + ' SEVERITY');
-          setLoadingDetail(formatNum(info.records) + ' accidents, ' + formatNum(info.usagers || 0) + ' people');
+        if (info.yearPhase === 'downloading') {
+          setLoadingText('DOWNLOADING ' + info.year + ' DATA');
+          setLoadingDetail('Fetching CSV files...');
+        } else if (info.yearPhase === 'parsing') {
+          setLoadingText('PROCESSING ' + info.year);
+          setLoadingDetail('Parsing records...');
+        } else if (info.yearPhase === 'done') {
+          setLoadingText('LOADED ' + info.year);
+          setLoadingDetail(formatNum(info.records) + ' records');
         }
       } else if (info.phase === 'done') {
-        setLoadingText('PROCESSING');
+        setLoadingText('READY');
         setLoadingDetail(formatNum(info.records) + ' total records');
         setLoadingProgress(95);
       }
