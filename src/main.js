@@ -3,7 +3,7 @@ import { createControls, updateControls } from './core/controls.js';
 import { processAccidentData } from './data/accident-data.js';
 import { loadAccidentData } from './data/datagouv-api.js';
 import { createFranceOutline } from './viz/france-outline.js';
-import { createParticleSystem, updateParticles, filterByYear, filterByHour, filterByWeather, setTimeOfDay } from './viz/particle-system.js';
+import { createParticleSystem, rebuildParticleSystem, updateParticles, filterByYear, filterByHour, filterByWeather, setTimeOfDay } from './viz/particle-system.js';
 import { createPulseWaves, updatePulseWaves } from './viz/pulse-waves.js';
 import { updateAtmosphere, getTimeLabel, getTimeIcon } from './viz/atmosphere.js';
 import { setupScrubber } from './ui/scrubber.js';
@@ -16,11 +16,14 @@ var state = {
   pulseEnabled: true, weatherFilter: 'all',
   allData: null, particleSystem: null, pulseWaves: null,
   scene: null, camera: null, controls: null, clock: null,
+  allRawRecords: [],
 };
+
+/* ── Loading overlay ─────────────────────────────────── */
 
 function setLoadingProgress(pct) {
   var f = document.getElementById('loading-fill');
-  if (f) f.style.width = pct + '%';
+  if (f) f.style.width = Math.min(100, pct) + '%';
 }
 
 function setLoadingText(text) {
@@ -28,9 +31,20 @@ function setLoadingText(text) {
   if (el) el.textContent = text;
 }
 
+function setLoadingDetail(text) {
+  var el = document.getElementById('loading-detail');
+  if (el) el.textContent = text;
+}
+
 function hideLoading() {
   var el = document.getElementById('loading');
   if (el) el.classList.add('hidden');
+}
+
+/* ── Formatting helpers ──────────────────────────────── */
+
+function formatNum(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function updateTimeUI(hour) {
@@ -40,50 +54,70 @@ function updateTimeUI(hour) {
   if (labelEl) labelEl.textContent = getTimeLabel(hour);
 }
 
-async function init() {
-  var container = document.getElementById('canvas-container');
-  setLoadingProgress(10);
-  var sd = createScene(container);
-  state.scene = sd.scene; state.camera = sd.camera; state.clock = sd.clock;
-  var renderer = sd.renderer;
-  state.controls = createControls(state.camera, renderer.domElement);
+/* ── Sync year slider to data range ──────────────────── */
 
-  setLoadingProgress(20);
-  state.scene.add(await createFranceOutline());
-
-  setLoadingProgress(30);
-  setLoadingText('FETCHING ACCIDENT DATA');
-  var rawData = await loadAccidentData(function(p) {
-    setLoadingProgress(30 + Math.floor(p * 40));
-  });
-  console.log('Loaded ' + rawData.length + ' real BAAC records');
-
-  setLoadingProgress(75);
-  state.allData = processAccidentData(rawData);
-  setLoadingProgress(85);
-  setLoadingText('BUILDING VISUALIZATION');
-  state.particleSystem = createParticleSystem(state.allData, state.scene);
-  state.pulseWaves = createPulseWaves(state.scene);
-
-  // Set year range from actual data
+function syncYearRange() {
+  if (!state.allData) return;
   var yr = state.allData.yearRange;
   state.currentYear = yr.max;
   var yearSlider = document.getElementById('year-slider');
   if (yearSlider) { yearSlider.min = yr.min; yearSlider.max = yr.max; yearSlider.value = yr.max; }
   var yearLabel = document.getElementById('scrubber-year');
   if (yearLabel) yearLabel.textContent = yr.max;
+}
 
+/* ── Rebuild viz from current raw records ────────────── */
+
+function rebuildViz() {
+  state.allData = processAccidentData(state.allRawRecords);
+  if (!state.particleSystem) {
+    state.particleSystem = createParticleSystem(state.allData, state.scene);
+  } else {
+    rebuildParticleSystem(state.particleSystem, state.allData);
+  }
+  syncYearRange();
   filterByYear(state.particleSystem, state.currentYear);
   updateStats(state.allData, state.currentYear);
+}
+
+/* ── Main init ───────────────────────────────────────── */
+
+async function init() {
+  var container = document.getElementById('canvas-container');
+  setLoadingProgress(5);
+  setLoadingText('INITIALIZING');
+
+  // Set up 3D scene immediately
+  var sd = createScene(container);
+  state.scene = sd.scene; state.camera = sd.camera; state.clock = sd.clock;
+  var renderer = sd.renderer;
+  state.controls = createControls(state.camera, renderer.domElement);
+
+  setLoadingProgress(10);
+  state.scene.add(await createFranceOutline());
+  state.pulseWaves = createPulseWaves(state.scene);
   updateAtmosphere(state.scene, state.currentHour);
   updateTimeUI(state.currentHour);
 
+  // Start the render loop right away so the scene is visible
+  function animate() {
+    requestAnimationFrame(animate);
+    var elapsed = state.clock.getElapsedTime();
+    updateControls(state.controls);
+    if (state.particleSystem) updateParticles(state.particleSystem, elapsed);
+    if (state.pulseWaves) updatePulseWaves(state.pulseWaves, elapsed);
+    getRenderer().render(state.scene, state.camera);
+  }
+  animate();
+
+  window.addEventListener('resize', function() { resizeScene(state.camera, renderer, container); });
+
+  // Wire up UI controls (they work even with no data yet)
   setupScrubber(
-    function(year) { state.currentYear = year; filterByYear(state.particleSystem, year); updateStats(state.allData, year); },
-    function(hour) { state.currentHour = hour; filterByHour(state.particleSystem, hour); var tod = updateAtmosphere(state.scene, hour); setTimeOfDay(state.particleSystem, tod); updateTimeUI(hour); }
+    function(year) { state.currentYear = year; if (state.particleSystem) filterByYear(state.particleSystem, year); if (state.allData) updateStats(state.allData, year); },
+    function(hour) { state.currentHour = hour; if (state.particleSystem) filterByHour(state.particleSystem, hour); var tod = updateAtmosphere(state.scene, hour); if (state.particleSystem) setTimeOfDay(state.particleSystem, tod); updateTimeUI(hour); }
   );
-  setupTooltip(state.camera, state.particleSystem, state.allData);
-  setupWeatherFilters(function(weather, weatherId) { state.weatherFilter = weather; filterByWeather(state.particleSystem, weather === 'all' ? 0 : weatherId); });
+  setupWeatherFilters(function(weather, weatherId) { state.weatherFilter = weather; if (state.particleSystem) filterByWeather(state.particleSystem, weather === 'all' ? 0 : weatherId); });
 
   var btnRotate = document.getElementById('btn-rotate');
   if (btnRotate) btnRotate.addEventListener('click', function() { state.autoRotate = !state.autoRotate; state.controls.autoRotate = state.autoRotate; btnRotate.classList.toggle('active', state.autoRotate); });
@@ -94,19 +128,45 @@ async function init() {
   var btnReset = document.getElementById('btn-reset');
   if (btnReset) btnReset.addEventListener('click', function() { if (state.controls) state.controls.reset(); });
 
-  setLoadingProgress(100);
-  setTimeout(hideLoading, 400);
-  window.addEventListener('resize', function() { resizeScene(state.camera, renderer, container); });
+  // Now fetch data with live status feedback
+  setLoadingProgress(15);
+  setLoadingText('CONNECTING TO DATA.GOUV.FR');
+  setLoadingDetail('');
 
-  function animate() {
-    requestAnimationFrame(animate);
-    var elapsed = state.clock.getElapsedTime();
-    updateControls(state.controls);
-    if (state.particleSystem) updateParticles(state.particleSystem, elapsed);
-    if (state.pulseWaves) updatePulseWaves(state.pulseWaves, elapsed);
-    getRenderer().render(state.scene, state.camera);
-  }
-  animate();
+  await loadAccidentData(
+    // onStatus: update loading overlay text
+    function(info) {
+      if (info.phase === 'cache') {
+        setLoadingText('LOADING CACHED DATA');
+        setLoadingDetail(info.message || '');
+        setLoadingProgress(40);
+      } else if (info.phase === 'api') {
+        var yearPct = ((info.yearIndex || 0) / (info.totalYears || 1)) * 80;
+        setLoadingProgress(15 + yearPct);
+        if (info.yearPhase === 'accidents') {
+          setLoadingText('FETCHING ' + info.year + ' ACCIDENTS');
+          setLoadingDetail(formatNum(info.records) + ' records loaded');
+        } else if (info.yearPhase === 'severity') {
+          setLoadingText('FETCHING ' + info.year + ' SEVERITY');
+          setLoadingDetail(formatNum(info.records) + ' accidents, ' + formatNum(info.usagers || 0) + ' people');
+        }
+      } else if (info.phase === 'done') {
+        setLoadingText('PROCESSING');
+        setLoadingDetail(formatNum(info.records) + ' total records');
+        setLoadingProgress(95);
+      }
+    },
+    // onYearData: progressively add data to the scene
+    function(yearRecords) {
+      state.allRawRecords.push.apply(state.allRawRecords, yearRecords);
+      rebuildViz();
+    }
+  );
+
+  // Final setup
+  setupTooltip(state.camera, state.particleSystem, state.allData);
+  setLoadingProgress(100);
+  setTimeout(hideLoading, 300);
 }
 
 init().catch(function(err) { console.error('Init failed:', err); hideLoading(); });

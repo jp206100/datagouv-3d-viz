@@ -75,6 +75,22 @@ export function createParticleSystem(data, scene) {
   return points;
 }
 
+export function rebuildParticleSystem(ps, data) {
+  if (!ps || !ps.geometry) return;
+  var g = ps.geometry;
+  g.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(data.colors, 3));
+  g.setAttribute('aSize', new THREE.BufferAttribute(data.sizes, 1));
+  g.setAttribute('aYear', new THREE.BufferAttribute(data.years, 1));
+  g.setAttribute('aOpacity', new THREE.BufferAttribute(data.opacities, 1));
+  g.setAttribute('aHour', new THREE.BufferAttribute(data.hours, 1));
+  g.setAttribute('aWeatherId', new THREE.BufferAttribute(data.weatherIds, 1));
+  g.setAttribute('aLightingId', new THREE.BufferAttribute(data.lightingIds, 1));
+  g.attributes.position.needsUpdate = true;
+  g.attributes.color.needsUpdate = true;
+  g.computeBoundingSphere();
+}
+
 export function updateParticles(ps, elapsed) { if (ps && ps.material && ps.material.uniforms) ps.material.uniforms.uTime.value = elapsed; }
 export function filterByYear(ps, year) { if (ps && ps.material && ps.material.uniforms) ps.material.uniforms.uFilterYear.value = year; }
 export function filterByHour(ps, hour) { if (ps && ps.material && ps.material.uniforms) ps.material.uniforms.uFilterHour.value = hour; }
