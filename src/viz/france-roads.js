@@ -86,8 +86,14 @@ const ROUTES_NATIONALES = [
   [[47.39,0.69],[47.08,2.40]],
 ];
 
-function buildLines(routes, color, opacity) {
+function buildTubeRoutes(routes, color, opacity, radius) {
   var group = new THREE.Group();
+  var mat = new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: opacity,
+    depthWrite: false,
+  });
   for (var i = 0; i < routes.length; i++) {
     var route = routes[i];
     var points = [];
@@ -95,14 +101,10 @@ function buildLines(routes, color, opacity) {
       var p = latLngToScene(route[j][0], route[j][1]);
       points.push(new THREE.Vector3(p.x, 0.005, p.z));
     }
-    var geom = new THREE.BufferGeometry().setFromPoints(points);
-    var mat = new THREE.LineBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: opacity,
-      depthWrite: false,
-    });
-    group.add(new THREE.Line(geom, mat));
+    if (points.length < 2) continue;
+    var curve = new THREE.CatmullRomCurve3(points);
+    var geom = new THREE.TubeGeometry(curve, points.length * 8, radius, 6, false);
+    group.add(new THREE.Mesh(geom, mat));
   }
   return group;
 }
@@ -111,11 +113,11 @@ export function createFranceRoads() {
   var group = new THREE.Group();
   group.name = 'france-roads';
 
-  // Autoroutes: bright white for testing visibility
-  group.add(buildLines(AUTOROUTES, 0xffffff, 0.9));
+  // Autoroutes: fat white tubes for testing
+  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.9, 0.15));
 
-  // National routes: bright white for testing visibility
-  group.add(buildLines(ROUTES_NATIONALES, 0xffffff, 0.7));
+  // National routes: slightly thinner white tubes
+  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.7, 0.10));
 
   return group;
 }
