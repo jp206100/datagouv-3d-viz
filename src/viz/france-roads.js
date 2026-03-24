@@ -88,12 +88,7 @@ const ROUTES_NATIONALES = [
 
 function buildTubeRoutes(routes, color, opacity, radius) {
   var group = new THREE.Group();
-  var mat = new THREE.MeshBasicMaterial({
-    color: color,
-    transparent: true,
-    opacity: opacity,
-    depthWrite: false,
-  });
+  var baseColor = new THREE.Color(color);
   for (var i = 0; i < routes.length; i++) {
     var route = routes[i];
     var points = [];
@@ -104,6 +99,31 @@ function buildTubeRoutes(routes, color, opacity, radius) {
     if (points.length < 2) continue;
     var curve = new THREE.CatmullRomCurve3(points);
     var geom = new THREE.TubeGeometry(curve, points.length * 8, radius, 6, false);
+
+    // Subtle gradient: slightly brighter near center of France, dimmer at edges
+    var positions = geom.attributes.position;
+    var colors = new Float32Array(positions.count * 3);
+    for (var k = 0; k < positions.count; k++) {
+      var x = positions.getX(k);
+      var z = positions.getZ(k);
+      // distance from scene center (approx center of France)
+      var dist = Math.sqrt(x * x + z * z);
+      // map to a subtle brightness range: 1.0 at center, ~0.88 at edges
+      var brightness = 1.0 - dist * 0.008;
+      brightness = Math.max(0.88, Math.min(1.0, brightness));
+      colors[k * 3] = baseColor.r * brightness;
+      colors[k * 3 + 1] = baseColor.g * brightness;
+      colors[k * 3 + 2] = baseColor.b * brightness;
+    }
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    var mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: opacity,
+      depthWrite: false,
+      fog: false,
+    });
     group.add(new THREE.Mesh(geom, mat));
   }
   return group;
