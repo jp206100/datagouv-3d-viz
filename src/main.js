@@ -3,6 +3,7 @@ import { createControls, updateControls } from './core/controls.js';
 import { processAccidentData } from './data/accident-data.js';
 import { loadAccidentData } from './data/datagouv-api.js';
 import { createFranceOutline } from './viz/france-outline.js';
+import { createFranceRoads } from './viz/france-roads.js';
 import { createParticleSystem, rebuildParticleSystem, updateParticles, filterByYear, filterByHour, filterByWeather, setTimeOfDay } from './viz/particle-system.js';
 import { createPulseWaves, updatePulseWaves } from './viz/pulse-waves.js';
 import { updateAtmosphere, getTimeLabel, getTimeIcon } from './viz/atmosphere.js';
@@ -95,6 +96,7 @@ async function init() {
 
   setLoadingProgress(10);
   state.scene.add(await createFranceOutline());
+  state.scene.add(createFranceRoads());
   state.pulseWaves = createPulseWaves(state.scene);
   updateAtmosphere(state.scene, state.currentHour);
   updateTimeUI(state.currentHour);
