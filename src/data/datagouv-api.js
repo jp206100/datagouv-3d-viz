@@ -136,14 +136,14 @@ export async function fetchAccidentDataForYear(year, onStatus) {
   if (results[1]) {
     var usagersRows = parseCSV(results[1]);
     for (var u = 0; u < usagersRows.length; u++) {
-      var accId = usagersRows[u].num_acc || usagersRows[u]['num_acc'] || '';
+      var accId = usagersRows[u].num_acc || usagersRows[u].accident_id || '';
       var grav = SEVERITY_MAP[String(usagersRows[u].grav || '').trim()] || 'minor';
       severityByAcc[accId] = worstSeverity(severityByAcc[accId], grav);
     }
   }
 
   var parsed = caracRows.map(function(row) {
-    var accId = row.num_acc || row['num_acc'] || '';
+    var accId = row.num_acc || row.accident_id || '';
     return parseRow(row, year, severityByAcc[accId]);
   }).filter(Boolean);
 
