@@ -12,7 +12,7 @@ var vertexShader = [
 '  float hourMatch = 1.0;',
 '  if (uFilterHour >= 0.0) { hourMatch = 1.0 - smoothstep(0.0, 2.5, abs(aHour - uFilterHour)); }',
 '  float weatherMatch = 1.0;',
-'  if (uFilterWeather > 0.0) { weatherMatch = (abs(aWeatherId - uFilterWeather) < 0.5) ? 1.0 : 0.08; }',
+'  if (uFilterWeather > 0.0) { weatherMatch = (abs(aWeatherId - uFilterWeather) < 0.5) ? 1.0 : 0.08; } else if (uFilterWeather < -0.5) { weatherMatch = (aWeatherId < 0.5) ? 1.0 : 0.08; }',
 '  vOpacity = yearMatch * hourMatch * weatherMatch * aOpacity;',
 '  float nightBoost = (aLightingId > 1.5) ? 1.4 : 1.0;',
 '  float floatSpeed = (aWeatherId > 0.5) ? 1.3 : 0.8;',
