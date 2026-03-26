@@ -6,5 +6,5 @@ export function updateStats(processedData, year) {
   if (el('stat-total')) el('stat-total').textContent = fmt(stats.total);
   if (el('stat-fatal')) el('stat-fatal').textContent = fmt(stats.fatal);
   if (el('stat-hospitalized')) el('stat-hospitalized').textContent = fmt(stats.hospitalized);
-  if (el('stat-weather')) el('stat-weather').textContent = fmt(stats.badWeather);
+
 }
