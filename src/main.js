@@ -13,7 +13,7 @@ import { setupTooltip } from './ui/tooltip.js';
 import { setupWeatherFilters } from './ui/weather-filter.js';
 
 var state = {
-  currentYear: 2023, currentHour: -1, autoRotate: false,
+  currentYear: 2024, currentHour: -1, autoRotate: false,
   pulseEnabled: true, weatherFilter: 'all',
   allData: null, particleSystem: null, pulseWaves: null,
   scene: null, camera: null, controls: null, clock: null,
