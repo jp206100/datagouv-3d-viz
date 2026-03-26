@@ -30,14 +30,15 @@
     .time-indicator { position: absolute; top: 28px; left: 50%; transform: translateX(-50%); text-align: center; }
     .time-indicator__icon { font-size: 32px; line-height: 1; transition: all 0.6s ease; }
     .time-indicator__label { font-family: var(--font-display); font-size: 11px; color: var(--text-muted); letter-spacing: 0.1em; margin-top: 4px; }
-    .stats { position: absolute; left: 36px; top: 105px; display: flex; flex-direction: column; gap: 24px; background: rgba(255, 255, 255, 0.5); padding: 20px; border-radius: 12px; }
+    .sidebar { position: absolute; left: 36px; top: 100px; bottom: 36px; display: flex; flex-direction: column; justify-content: space-between; width: 180px; }
+    .stats { display: flex; flex-direction: column; gap: 14px; background: rgba(255, 255, 255, 0.5); padding: 16px; border-radius: 12px; }
     .stats__item { display: flex; flex-direction: column; }
-    .stats__value { font-family: var(--font-display); font-weight: 700; font-size: 28px; color: #333; line-height: 1; }
-    .stats__label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
-    .legend { position: absolute; left: 36px; bottom: 250px; display: flex; flex-direction: column; gap: 10px; background: rgba(255, 255, 255, 0.5); padding: 20px; border-radius: 12px; }
+    .stats__value { font-family: var(--font-display); font-weight: 700; font-size: 24px; color: #333; line-height: 1; }
+    .stats__label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+    .legend { display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.5); padding: 16px; border-radius: 12px; }
     .legend__item { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #333; letter-spacing: 0.04em; }
     .legend__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .weather-filters { position: absolute; left: 36px; bottom: 142px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 220px; background: rgba(255, 255, 255, 0.5); padding: 20px; border-radius: 12px; }
+    .weather-filters { display: flex; gap: 6px; flex-wrap: wrap; background: rgba(255, 255, 255, 0.5); padding: 16px; border-radius: 12px; }
     .weather-chip { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: #333; font-size: 10px; font-family: var(--font-body); letter-spacing: 0.04em; cursor: pointer; transition: all 0.2s; }
     .weather-chip:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
     .weather-chip.active { background: var(--bg-elevated); border-color: var(--accent-blue); color: var(--text-primary); }
@@ -45,7 +46,7 @@
     .controls__btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); font-size: 16px; cursor: pointer; display: grid; place-items: center; transition: all 0.2s; }
     .controls__btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--accent-blue); }
     .controls__btn.active { background: var(--accent-glow); color: #fff; border-color: var(--accent-glow); }
-    .scrubber-group { position: absolute; left: 36px; bottom: 36px; background: rgba(255, 255, 255, 0.5); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 16px; width: 180px; }
+    .scrubber-group { background: rgba(255, 255, 255, 0.5); padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 16px; }
     .scrubber-section { display: flex; flex-direction: column; }
     .scrubber__label { font-size: 10px; color: #333; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
     .scrubber__year { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: #333; line-height: 1; margin-bottom: 6px; user-select: none; }
@@ -84,45 +85,46 @@
       <div class="time-indicator__icon" id="time-icon">&#9790;</div>
       <div class="time-indicator__label" id="time-label">ALL HOURS</div>
     </div>
-    <div class="stats" id="stats">
-      <div class="stats__item"><div class="stats__value" id="stat-total">&mdash;</div><div class="stats__label">Accidents</div></div>
-      <div class="stats__item"><div class="stats__value" id="stat-fatal">&mdash;</div><div class="stats__label">Fatal</div></div>
-      <div class="stats__item"><div class="stats__value" id="stat-hospitalized">&mdash;</div><div class="stats__label">Hospitalized</div></div>
-
-    </div>
-    <div class="legend">
-      <div class="legend__item"><div class="legend__dot" style="background:var(--accent-fatal);box-shadow:0 0 6px var(--accent-fatal);"></div>Fatal</div>
-      <div class="legend__item"><div class="legend__dot" style="background:var(--accent-severe);"></div>Hospitalized</div>
-      <div class="legend__item"><div class="legend__dot" style="background:var(--accent-minor);"></div>Minor injury</div>
-      <div class="legend__item"><div class="legend__dot" style="background:var(--accent-rain);"></div>Rain</div>
-      <div class="legend__item"><div class="legend__dot" style="background:var(--accent-fog);"></div>Fog / Snow</div>
-    </div>
-    <div class="weather-filters" id="weather-filters">
-      <button class="weather-chip active" data-weather="all">All</button>
-      <button class="weather-chip" data-weather="normal">Clear sky</button>
-      <button class="weather-chip" data-weather="rain">Rain</button>
-      <button class="weather-chip" data-weather="fog">Fog</button>
-      <button class="weather-chip" data-weather="snow">Snow</button>
-      <button class="weather-chip" data-weather="night">Night</button>
+    <div class="sidebar">
+      <div class="stats" id="stats">
+        <div class="stats__item"><div class="stats__value" id="stat-total">&mdash;</div><div class="stats__label">Accidents</div></div>
+        <div class="stats__item"><div class="stats__value" id="stat-fatal">&mdash;</div><div class="stats__label">Fatal</div></div>
+        <div class="stats__item"><div class="stats__value" id="stat-hospitalized">&mdash;</div><div class="stats__label">Hospitalized</div></div>
+      </div>
+      <div class="legend">
+        <div class="legend__item"><div class="legend__dot" style="background:var(--accent-fatal);box-shadow:0 0 6px var(--accent-fatal);"></div>Fatal</div>
+        <div class="legend__item"><div class="legend__dot" style="background:var(--accent-severe);"></div>Hospitalized</div>
+        <div class="legend__item"><div class="legend__dot" style="background:var(--accent-minor);"></div>Minor injury</div>
+        <div class="legend__item"><div class="legend__dot" style="background:var(--accent-rain);"></div>Rain</div>
+        <div class="legend__item"><div class="legend__dot" style="background:var(--accent-fog);"></div>Fog / Snow</div>
+      </div>
+      <div class="weather-filters" id="weather-filters">
+        <button class="weather-chip active" data-weather="all">All</button>
+        <button class="weather-chip" data-weather="normal">Clear sky</button>
+        <button class="weather-chip" data-weather="rain">Rain</button>
+        <button class="weather-chip" data-weather="fog">Fog</button>
+        <button class="weather-chip" data-weather="snow">Snow</button>
+        <button class="weather-chip" data-weather="night">Night</button>
+      </div>
+      <div class="scrubber-group">
+        <div class="scrubber-section">
+          <div class="scrubber__label">Year</div>
+          <div class="scrubber__year" id="scrubber-year">2024</div>
+          <input type="range" class="scrubber__track" id="year-slider" min="2005" max="2024" value="2024" step="1" />
+          <div class="scrubber__labels"><span>2005</span><span>2015</span><span>2024</span></div>
+        </div>
+        <div class="scrubber-section">
+          <div class="scrubber__label">Time of day</div>
+          <div class="scrubber__hour-label" id="hour-label">ALL</div>
+          <input type="range" class="scrubber__track scrubber__track--hour" id="hour-slider" min="-1" max="23" value="-1" step="1" />
+          <div class="scrubber__labels"><span>All</span><span>12</span><span>23</span></div>
+        </div>
+      </div>
     </div>
     <div class="controls">
       <button class="controls__btn" id="btn-rotate" title="Auto-rotate">&#10227;</button>
       <button class="controls__btn" id="btn-pulse" title="Toggle pulse waves">&#10740;</button>
       <button class="controls__btn" id="btn-reset" title="Reset camera">&#8962;</button>
-    </div>
-    <div class="scrubber-group">
-      <div class="scrubber-section">
-        <div class="scrubber__label">Year</div>
-        <div class="scrubber__year" id="scrubber-year">2024</div>
-        <input type="range" class="scrubber__track" id="year-slider" min="2005" max="2024" value="2024" step="1" />
-        <div class="scrubber__labels"><span>2005</span><span>2015</span><span>2024</span></div>
-      </div>
-      <div class="scrubber-section">
-        <div class="scrubber__label">Time of day</div>
-        <div class="scrubber__hour-label" id="hour-label">ALL</div>
-        <input type="range" class="scrubber__track scrubber__track--hour" id="hour-slider" min="-1" max="23" value="-1" step="1" />
-        <div class="scrubber__labels"><span>All</span><span>12</span><span>23</span></div>
-      </div>
     </div>
   </div>
   <div class="tooltip" id="tooltip"></div>
