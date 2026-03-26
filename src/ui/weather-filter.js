@@ -1,4 +1,4 @@
-var WEATHER_ID_MAP = { all: 0, normal: 0, rain: 1, fog: 2, snow: 3, night: -1 };
+var WEATHER_ID_MAP = { all: 0, normal: -1, rain: 1, fog: 2, snow: 3 };
 
 export function setupWeatherFilters(onChange) {
   var container = document.getElementById('weather-filters');
