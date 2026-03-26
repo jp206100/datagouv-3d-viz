@@ -176,10 +176,10 @@ export function createFranceRoads() {
   group.name = 'france-roads';
 
   // Autoroutes
-  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.09));
+  group.add(buildTubeRoutes(AUTOROUTES, 0x99a3b3, 0.09));
 
   // National routes
-  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.09));
+  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0x99a3b3, 0.09));
 
   // City labels
   group.add(createCityLabels());
