@@ -86,7 +86,7 @@ const ROUTES_NATIONALES = [
   [[47.39,0.69],[47.08,2.40]],
 ];
 
-function buildTubeRoutes(routes, color, opacity, radius) {
+function buildTubeRoutes(routes, color, radius) {
   var group = new THREE.Group();
   var baseColor = new THREE.Color(color);
   for (var i = 0; i < routes.length; i++) {
@@ -102,9 +102,6 @@ function buildTubeRoutes(routes, color, opacity, radius) {
 
     var mat = new THREE.MeshBasicMaterial({
       color: baseColor,
-      transparent: true,
-      opacity: opacity,
-      depthWrite: false,
       fog: false,
     });
     group.add(new THREE.Mesh(geom, mat));
@@ -179,10 +176,10 @@ export function createFranceRoads() {
   group.name = 'france-roads';
 
   // Autoroutes
-  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.85, 0.112));
+  group.add(buildTubeRoutes(AUTOROUTES, 0xffffff, 0.09));
 
   // National routes
-  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.85, 0.075));
+  group.add(buildTubeRoutes(ROUTES_NATIONALES, 0xffffff, 0.09));
 
   // City labels
   group.add(createCityLabels());
