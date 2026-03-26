@@ -137,7 +137,7 @@ function makeTextSprite(text) {
   var ctx = canvas.getContext('2d');
   canvas.width = 512;
   canvas.height = 128;
-  ctx.font = '700 48px sans-serif';
+  ctx.font = "600 48px 'Inter', sans-serif";
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
