@@ -19,12 +19,14 @@ export async function getDatasetResources(datasetId) {
   return _resourcesCache;
 }
 
-function findResource(resources, keyword, year) {
+function findResource(resources, keywords, year) {
+  if (typeof keywords === 'string') keywords = [keywords];
   var yearStr = String(year);
   var twoDigit = yearStr.slice(2);
   return resources.find(function(r) {
     var name = (r.title || r.url || '').toLowerCase();
-    return (name.includes(keyword)) &&
+    var matchesKeyword = keywords.some(function(kw) { return name.includes(kw); });
+    return matchesKeyword &&
       (name.includes(yearStr) || name.includes('-' + twoDigit + '.') || name.includes('_' + twoDigit + '.') || name.includes('-' + twoDigit + '-')) &&
       (name.endsWith('.csv') || r.format === 'csv');
   });
@@ -115,7 +117,7 @@ export async function fetchAccidentDataForYear(year, onStatus) {
   if (!onStatus) onStatus = function(){};
   var resources = await getDatasetResources(BAAC_DATASET_ID);
 
-  var caracResource = findResource(resources, 'caract', year);
+  var caracResource = findResource(resources, ['caract', 'carcteristiques'], year);
   if (!caracResource) throw new Error('No data found for year ' + year);
   var usagersResource = findResource(resources, 'usager', year);
 
