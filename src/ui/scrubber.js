@@ -2,11 +2,14 @@ export function setupScrubber(onYearChange, onHourChange) {
   var yearSlider = document.getElementById('year-slider');
   var yearDisplay = document.getElementById('scrubber-year');
   if (yearSlider && yearDisplay) {
-    yearSlider.addEventListener('input', function() {
-      var year = parseInt(yearSlider.value);
+    function snapYear() {
+      var year = Math.round(parseFloat(yearSlider.value));
+      yearSlider.value = year;
       yearDisplay.textContent = year;
       onYearChange(year);
-    });
+    }
+    yearSlider.addEventListener('input', snapYear);
+    yearSlider.addEventListener('change', snapYear);
   }
   var hourSlider = document.getElementById('hour-slider');
   var hourDisplay = document.getElementById('hour-label');

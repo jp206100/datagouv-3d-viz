@@ -13,7 +13,7 @@ import { setupTooltip } from './ui/tooltip.js';
 import { setupWeatherFilters } from './ui/weather-filter.js';
 
 var state = {
-  currentYear: 2024, currentHour: -1, autoRotate: false,
+  currentYear: 2023, currentHour: -1, autoRotate: false,
   pulseEnabled: true, weatherFilter: 'all',
   allData: null, particleSystem: null, pulseWaves: null,
   scene: null, camera: null, controls: null, clock: null,
@@ -60,11 +60,29 @@ function updateTimeUI(hour) {
 function syncYearRange() {
   if (!state.allData) return;
   var yr = state.allData.yearRange;
-  state.currentYear = yr.max;
   var yearSlider = document.getElementById('year-slider');
-  if (yearSlider) { yearSlider.min = yr.min; yearSlider.max = yr.max; yearSlider.value = yr.max; }
-  var yearLabel = document.getElementById('scrubber-year');
-  if (yearLabel) yearLabel.textContent = yr.max;
+  if (yearSlider) {
+    yearSlider.min = yr.min;
+    yearSlider.max = yr.max;
+    // Only set the value if current year is outside the new range
+    var cur = parseInt(yearSlider.value);
+    if (cur < yr.min || cur > yr.max) {
+      yearSlider.value = yr.max;
+      state.currentYear = yr.max;
+      var yearLabel = document.getElementById('scrubber-year');
+      if (yearLabel) yearLabel.textContent = yr.max;
+    }
+  }
+  // Update the min/max label spans
+  var labelsEl = yearSlider && yearSlider.parentElement && yearSlider.parentElement.querySelector('.scrubber__labels');
+  if (labelsEl) {
+    var spans = labelsEl.querySelectorAll('span');
+    if (spans.length >= 2) {
+      spans[0].textContent = yr.min;
+      spans[spans.length - 1].textContent = yr.max;
+      if (spans.length === 3) spans[1].textContent = Math.round((yr.min + yr.max) / 2);
+    }
+  }
 }
 
 /* ── Rebuild viz from current raw records ────────────── */
