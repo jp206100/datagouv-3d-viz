@@ -189,7 +189,7 @@ export async function loadAccidentData(onStatus, onYearData) {
   // Fall back to downloading CSVs directly (2 requests per year)
   console.log('Downloading accident CSVs from data.gouv.fr...');
   var allRecords = [];
-  var yearsToFetch = [2023, 2022];
+  var yearsToFetch = [2024, 2023, 2022, 2021, 2020];
   for (var i = 0; i < yearsToFetch.length; i++) {
     var year = yearsToFetch[i];
     try {
