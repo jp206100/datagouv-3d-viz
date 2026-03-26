@@ -16,7 +16,19 @@ export function setupScrubber(onYearChange, onHourChange) {
   if (hourSlider && hourDisplay) {
     hourSlider.addEventListener('input', function() {
       var hour = parseInt(hourSlider.value);
-      hourDisplay.textContent = hour < 0 ? 'ALL' : String(hour).padStart(2, '0') + 'h';
+      var label;
+      if (hour < 0) {
+        label = 'ALL';
+      } else if (hour === 0) {
+        label = '12AM';
+      } else if (hour < 12) {
+        label = hour + 'AM';
+      } else if (hour === 12) {
+        label = '12PM';
+      } else {
+        label = (hour - 12) + 'PM';
+      }
+      hourDisplay.textContent = label;
       onHourChange(hour);
     });
   }
