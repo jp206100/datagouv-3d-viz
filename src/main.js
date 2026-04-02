@@ -11,6 +11,7 @@ import { setupScrubber } from './ui/scrubber.js';
 import { updateStats } from './ui/stats.js';
 import { setupTooltip } from './ui/tooltip.js';
 import { setupWeatherFilters } from './ui/weather-filter.js';
+import { createWeatherBanner, setWeatherBanner, updateWeatherBanner, renderWeatherBanner } from './viz/weather-banner.js';
 
 var state = {
   currentYear: 2024, currentHour: -1, autoRotate: false,
@@ -18,6 +19,7 @@ var state = {
   allData: null, particleSystem: null, pulseWaves: null,
   scene: null, camera: null, controls: null, clock: null,
   allRawRecords: [],
+  weatherBanner: null,
 };
 
 /* ── Loading overlay ─────────────────────────────────── */
@@ -119,6 +121,8 @@ async function init() {
   updateAtmosphere(state.scene, state.currentHour);
   updateTimeUI(state.currentHour);
 
+  state.weatherBanner = createWeatherBanner(renderer);
+
   // Start the render loop right away so the scene is visible
   function animate() {
     requestAnimationFrame(animate);
@@ -126,7 +130,9 @@ async function init() {
     updateControls(state.controls);
     if (state.particleSystem) updateParticles(state.particleSystem, elapsed);
     if (state.pulseWaves) updatePulseWaves(state.pulseWaves, elapsed);
+    if (state.weatherBanner) updateWeatherBanner(state.weatherBanner, elapsed);
     getRenderer().render(state.scene, state.camera);
+    if (state.weatherBanner) renderWeatherBanner(state.weatherBanner, renderer);
   }
   animate();
 
@@ -137,7 +143,7 @@ async function init() {
     function(year) { state.currentYear = year; if (state.particleSystem) filterByYear(state.particleSystem, year); if (state.allData) updateStats(state.allData, year); },
     function(hour) { state.currentHour = hour; if (state.particleSystem) filterByHour(state.particleSystem, hour); var tod = updateAtmosphere(state.scene, hour); if (state.particleSystem) setTimeOfDay(state.particleSystem, tod); updateTimeUI(hour); }
   );
-  setupWeatherFilters(function(weather, weatherId) { state.weatherFilter = weather; if (state.particleSystem) filterByWeather(state.particleSystem, weather === 'all' ? 0 : weatherId); });
+  setupWeatherFilters(function(weather, weatherId) { state.weatherFilter = weather; if (state.particleSystem) filterByWeather(state.particleSystem, weather === 'all' ? 0 : weatherId); if (state.weatherBanner) setWeatherBanner(state.weatherBanner, weather); });
 
   var btnRotate = document.getElementById('btn-rotate');
   if (btnRotate) btnRotate.addEventListener('click', function() { state.autoRotate = !state.autoRotate; state.controls.autoRotate = state.autoRotate; btnRotate.classList.toggle('active', state.autoRotate); });
