@@ -24,10 +24,11 @@ var vertexShader = [
   '  vec3 pos = position;',
   '  float r = aRandom;',
   '  float t = uTime;',
-  // Clear sky: gentle float upward with swirl
+  // Clear sky: horizontal light rays sweeping across
   '  if (uWeatherType > 0.5 && uWeatherType < 1.5) {',
-  '    pos.x += sin(t * 0.5 + r * 6.28) * 0.18;',
-  '    pos.y = mod(pos.y + t * 0.12 + r, 2.5) - 1.25;',
+  '    float speed = 0.15 + r * 0.12;',
+  '    pos.x = mod(pos.x + t * speed + r * 2.5, 2.5) - 1.25;',
+  '    pos.y += sin(t * 0.3 + r * 6.28) * 0.04;',
   '  }',
   // Rain: fast downward streaks
   '  else if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
@@ -49,7 +50,8 @@ var vertexShader = [
   '  vOpacity = aOpacity;',
   '  vRandom = r;',
   '  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);',
-  '  gl_PointSize = aSize * uPixelRatio;',
+  '  float sizeMult = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 4.0 : 1.0;',
+  '  gl_PointSize = aSize * sizeMult * uPixelRatio;',
   '}',
 ].join('\n');
 
@@ -66,8 +68,16 @@ var fragmentShader = [
   '  float dist = length(center);',
   '  if (dist > 0.5) discard;',
   '  float alpha;',
+  // Clear sky: horizontal light-ray streaks
+  '  if (uWeatherType > 0.5 && uWeatherType < 1.5) {',
+  '    float rayY = abs(center.y);',
+  '    float rayFade = smoothstep(0.5, 0.0, abs(center.x));',
+  '    alpha = smoothstep(0.18, 0.0, rayY) * rayFade;',
+  '    float coreGlow = smoothstep(0.06, 0.0, rayY) * rayFade;',
+  '    alpha = alpha * 0.7 + coreGlow * 0.5;',
+  '  }',
   // Rain: vertically elongated streak
-  '  if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
+  '  else if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
   '    float streak = length(vec2(center.x * 3.0, center.y));',
   '    alpha = smoothstep(0.5, 0.05, streak);',
   '  }',
@@ -76,16 +86,18 @@ var fragmentShader = [
   '    alpha = smoothstep(0.5, 0.0, dist * 0.7);',
   '    alpha *= 0.6;',
   '  }',
-  // Clear sky & snow: circular glow
+  // Snow: circular glow
   '  else {',
   '    alpha = smoothstep(0.5, 0.0, dist);',
   '  }',
-  // Hologram scanline effect
-  '  float scanline = 0.82 + 0.18 * sin(gl_FragCoord.y * 2.5 + uTime * 2.0);',
+  // Hologram scanline effect (subtle for clear sky to keep rays clean)
+  '  float scanStr = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 0.08 : 0.18;',
+  '  float scanline = (1.0 - scanStr) + scanStr * sin(gl_FragCoord.y * 2.5 + uTime * 2.0);',
   '  vec3 color = mix(uColorSecondary, uColorPrimary, vRandom);',
-  // Inner core brightening
+  // Inner core brightening (stronger for light rays)
   '  float core = smoothstep(0.3, 0.0, dist);',
-  '  color += core * 0.3;',
+  '  float coreBoost = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 0.5 : 0.3;',
+  '  color += core * coreBoost;',
   '  alpha *= vOpacity * uOpacity * scanline;',
   '  gl_FragColor = vec4(color, alpha);',
   '}',
