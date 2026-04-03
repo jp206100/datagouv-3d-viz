@@ -1,151 +1,197 @@
 import * as THREE from 'three';
 
-var PARTICLE_COUNT = 600;
-
-var WEATHER_COLORS = {
-  normal: { primary: [1.0, 0.85, 0.2], secondary: [1.0, 0.65, 0.1] },
-  rain:   { primary: [0.35, 0.61, 0.84], secondary: [0.2, 0.4, 0.7] },
-  fog:    { primary: [0.7, 0.7, 0.78], secondary: [0.5, 0.5, 0.58] },
-  snow:   { primary: [1.0, 1.0, 1.0], secondary: [0.8, 0.88, 0.95] },
-};
-
 var WEATHER_TYPE_MAP = { normal: 1.0, rain: 2.0, fog: 3.0, snow: 4.0 };
 
-var vertexShader = [
-  'attribute float aSize;',
-  'attribute float aOpacity;',
-  'attribute float aRandom;',
-  'uniform float uTime;',
-  'uniform float uWeatherType;',
-  'uniform float uPixelRatio;',
-  'varying float vOpacity;',
-  'varying float vRandom;',
-  'void main() {',
-  '  vec3 pos = position;',
-  '  float r = aRandom;',
-  '  float t = uTime;',
-  // Clear sky: horizontal light rays sweeping across
-  '  if (uWeatherType > 0.5 && uWeatherType < 1.5) {',
-  '    float speed = 0.15 + r * 0.12;',
-  '    pos.x = mod(pos.x + t * speed + r * 2.5, 2.5) - 1.25;',
-  '    pos.y += sin(t * 0.3 + r * 6.28) * 0.04;',
-  '  }',
-  // Rain: fast downward streaks
-  '  else if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
-  '    pos.y = mod(pos.y - t * 1.2 - r * 3.0, 2.5) - 1.25;',
-  '    pos.x += sin(r * 30.0) * 0.03;',
-  '  }',
-  // Fog: slow horizontal drift
-  '  else if (uWeatherType > 2.5 && uWeatherType < 3.5) {',
-  '    pos.x += sin(t * 0.2 + r * 6.28) * 0.35;',
-  '    pos.y += cos(t * 0.12 + r * 3.14) * 0.08;',
-  '    pos.x = mod(pos.x + 1.25, 2.5) - 1.25;',
-  '  }',
-  // Snow: gentle fall with horizontal wobble
-  '  else if (uWeatherType > 3.5 && uWeatherType < 4.5) {',
-  '    pos.y = mod(pos.y - t * 0.18 - r * 0.6, 2.5) - 1.25;',
-  '    pos.x += sin(t * 0.5 + r * 6.28) * 0.22;',
-  '    pos.x = mod(pos.x + 1.25, 2.5) - 1.25;',
-  '  }',
-  '  vOpacity = aOpacity;',
-  '  vRandom = r;',
-  '  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);',
-  '  float sizeMult = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 4.0 : 1.0;',
-  '  gl_PointSize = aSize * sizeMult * uPixelRatio;',
-  '}',
-].join('\n');
+var bannerVertexShader = 'void main() { gl_Position = vec4(position, 1.0); }';
 
-var fragmentShader = [
-  'uniform float uOpacity;',
-  'uniform float uWeatherType;',
-  'uniform vec3 uColorPrimary;',
-  'uniform vec3 uColorSecondary;',
+var bannerFragmentShader = [
   'uniform float uTime;',
-  'varying float vOpacity;',
-  'varying float vRandom;',
+  'uniform vec2 uResolution;',
+  'uniform float uWeatherType;',
+  'uniform float uOpacity;',
+  '',
+  '// --- Utility ---',
+  'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+  'float hash1(float n) { return fract(sin(n) * 43758.5453); }',
+  '',
+  'float noise(vec2 p) {',
+  '  vec2 i = floor(p); vec2 f = fract(p);',
+  '  f = f * f * (3.0 - 2.0 * f);',
+  '  return mix(',
+  '    mix(hash(i), hash(i + vec2(1,0)), f.x),',
+  '    mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);',
+  '}',
+  '',
+  'float fbm(vec2 p) {',
+  '  float v = 0.0; float a = 0.5;',
+  '  for (int i = 0; i < 5; i++) {',
+  '    v += a * noise(p); p *= 2.1; a *= 0.5;',
+  '  }',
+  '  return v;',
+  '}',
+  '',
+  '// --- Clear Sky: God Rays ---',
+  'vec3 clearSky(vec2 uv, float t) {',
+  '  float rays = 0.0;',
+  '  for (int i = 0; i < 8; i++) {',
+  '    float fi = float(i);',
+  '    float angle = -0.4 + fi * 0.15 + sin(t * 0.4 + fi * 0.7) * 0.06;',
+  '    vec2 rayDir = vec2(cos(angle), sin(angle));',
+  '    vec2 origin = vec2(-0.3, 1.3 - fi * 0.12);',
+  '    vec2 toPoint = uv - origin;',
+  '    float along = dot(toPoint, rayDir);',
+  '    vec2 closest = origin + rayDir * along;',
+  '    float dist = length(uv - closest);',
+  '    float thickness = 0.012 + 0.01 * sin(t * 0.3 + fi * 2.5);',
+  '    float ray = smoothstep(thickness, 0.0, dist);',
+  '    ray *= smoothstep(-0.2, 0.4, along) * smoothstep(2.5, 0.3, along);',
+  '    float n = noise(vec2(along * 4.0 + t * 0.5, fi * 8.0));',
+  '    ray *= 0.5 + 0.5 * n;',
+  '    ray *= 0.85 + 0.15 * sin(along * 15.0 - t * 1.5 + fi * 4.0);',
+  '    rays += ray * (0.5 + 0.5 * hash1(fi));',
+  '  }',
+  '  vec3 color = vec3(1.0, 0.85, 0.3) * rays * 0.7;',
+  '  color += vec3(1.0, 0.65, 0.1) * rays * rays * 1.5;',
+  '  float glow = smoothstep(1.2, 0.0, length(uv - vec2(-0.1, 1.1)));',
+  '  color += vec3(1.0, 0.9, 0.5) * glow * 0.08;',
+  '  for (int i = 0; i < 20; i++) {',
+  '    float fi = float(i);',
+  '    float mx = fract(hash1(fi * 7.3) + t * (0.02 + hash1(fi * 3.1) * 0.03));',
+  '    float my = hash1(fi * 13.7) * 0.8 + 0.1 + sin(t * 0.3 + fi) * 0.05;',
+  '    float mote = smoothstep(0.01, 0.0, length(uv - vec2(mx, my)));',
+  '    color += vec3(1.0, 0.92, 0.6) * mote * 0.35;',
+  '  }',
+  '  return color;',
+  '}',
+  '',
+  '// --- Rain: Layered Procedural Streaks ---',
+  'float rainLayer(vec2 uv, float speed, float density, float seed) {',
+  '  float t = uTime * speed;',
+  '  uv *= vec2(density, 3.5);',
+  '  vec2 id = floor(uv);',
+  '  float h = hash(id + seed * 100.0);',
+  '  vec2 cell = fract(uv);',
+  '  cell.x += (h - 0.5) * 0.4;',
+  '  cell.y = fract(cell.y + t * (0.5 + h * 0.5) + h * 10.0);',
+  '  vec2 center = cell - vec2(0.5, 0.65);',
+  '  float streak = length(vec2(center.x * 8.0, center.y * 0.7));',
+  '  float drop = smoothstep(0.5, 0.0, streak) * smoothstep(0.0, 0.25, cell.y);',
+  '  return drop * (0.4 + h * 0.6);',
+  '}',
+  '',
+  'vec3 rain(vec2 uv, float t) {',
+  '  float r = 0.0;',
+  '  r += rainLayer(uv, 1.4, 60.0, 0.0) * 0.5;',
+  '  r += rainLayer(uv + 0.17, 1.0, 40.0, 1.0) * 0.7;',
+  '  r += rainLayer(uv + 0.41, 1.8, 90.0, 2.0) * 0.35;',
+  '  vec3 color = vec3(0.3, 0.55, 0.85) * r;',
+  '  color += vec3(0.15, 0.3, 0.6) * r * r * 0.8;',
+  '  float splash = smoothstep(0.0, 0.15, uv.y);',
+  '  color *= splash;',
+  '  float vig = smoothstep(0.0, 0.3, uv.x) * smoothstep(1.0, 0.7, uv.x);',
+  '  color *= vig;',
+  '  return color;',
+  '}',
+  '',
+  '// --- Fog: Layered FBM Mist ---',
+  'vec3 fog(vec2 uv, float t) {',
+  '  float f1 = fbm(uv * vec2(4.0, 2.5) + vec2(t, t * 0.3));',
+  '  float f2 = fbm(uv * vec2(3.0, 1.8) + vec2(-t * 0.7, t * 0.2) + 50.0);',
+  '  float f3 = fbm(uv * vec2(6.0, 3.5) + vec2(t * 0.5, -t * 0.15) + 100.0);',
+  '  float f = f1 * 0.5 + f2 * 0.35 + f3 * 0.15;',
+  '  float yShape = smoothstep(0.0, 0.35, uv.y) * smoothstep(1.0, 0.55, uv.y);',
+  '  f *= yShape;',
+  '  float band = sin(uv.y * 10.0 + t * 1.5) * 0.08 + 0.92;',
+  '  f *= band;',
+  '  vec3 color1 = vec3(0.65, 0.65, 0.72);',
+  '  vec3 color2 = vec3(0.4, 0.38, 0.5);',
+  '  vec3 color = mix(color2, color1, f) * f * 0.65;',
+  '  float glow = smoothstep(0.7, 0.0, abs(uv.x - 0.5)) * 0.06;',
+  '  color += vec3(0.6, 0.6, 0.7) * glow;',
+  '  return color;',
+  '}',
+  '',
+  '// --- Snow: Multi-Layer Falling Flakes ---',
+  'float snowLayer(vec2 uv, float scale, float speed, float seed) {',
+  '  float t = uTime * speed;',
+  '  uv *= scale;',
+  '  uv.y += t;',
+  '  uv.x += sin(t * 0.3 + seed) * 0.5;',
+  '  vec2 id = floor(uv);',
+  '  vec2 f = fract(uv) - 0.5;',
+  '  float snow = 0.0;',
+  '  for (int y = -1; y <= 1; y++) {',
+  '    for (int x = -1; x <= 1; x++) {',
+  '      vec2 neighbor = vec2(float(x), float(y));',
+  '      vec2 cellId = id + neighbor;',
+  '      float h = hash(cellId + seed);',
+  '      vec2 offset = vec2(hash(cellId * 1.7 + seed), hash(cellId * 2.3 + seed + 50.0)) - 0.5;',
+  '      offset *= 0.7;',
+  '      offset.x += sin(uTime * (0.4 + h * 0.3) + h * 6.28) * 0.18;',
+  '      vec2 diff = neighbor + offset - f;',
+  '      float dist = length(diff);',
+  '      float size = 0.06 + h * 0.09;',
+  '      float flake = smoothstep(size, size * 0.15, dist);',
+  '      flake += smoothstep(size * 3.5, 0.0, dist) * 0.12;',
+  '      snow += flake * (0.4 + h * 0.6);',
+  '    }',
+  '  }',
+  '  return snow;',
+  '}',
+  '',
+  'vec3 snow(vec2 uv, float t) {',
+  '  float s = 0.0;',
+  '  s += snowLayer(uv, 8.0, 0.22, 0.0) * 0.55;',
+  '  s += snowLayer(uv, 5.0, 0.32, 50.0) * 0.75;',
+  '  s += snowLayer(uv, 3.5, 0.45, 100.0) * 1.0;',
+  '  vec3 color = mix(vec3(0.7, 0.82, 0.95), vec3(1.0), s) * s * 0.55;',
+  '  color += vec3(0.06, 0.08, 0.14) * smoothstep(1.0, 0.2, length(uv - 0.5));',
+  '  return color;',
+  '}',
+  '',
+  '// --- Main ---',
   'void main() {',
-  '  vec2 center = gl_PointCoord - 0.5;',
-  '  float dist = length(center);',
-  '  if (dist > 0.5) discard;',
-  '  float alpha;',
-  // Clear sky: horizontal light-ray streaks
+  '  vec2 uv = gl_FragCoord.xy / uResolution;',
+  '  float t = uTime * 0.15;',
+  '  vec3 color = vec3(0.0);',
+  '',
   '  if (uWeatherType > 0.5 && uWeatherType < 1.5) {',
-  '    float rayY = abs(center.y);',
-  '    float rayFade = smoothstep(0.5, 0.0, abs(center.x));',
-  '    alpha = smoothstep(0.18, 0.0, rayY) * rayFade;',
-  '    float coreGlow = smoothstep(0.06, 0.0, rayY) * rayFade;',
-  '    alpha = alpha * 0.7 + coreGlow * 0.5;',
+  '    color = clearSky(uv, uTime * 0.3);',
+  '  } else if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
+  '    color = rain(uv, uTime);',
+  '  } else if (uWeatherType > 2.5 && uWeatherType < 3.5) {',
+  '    color = fog(uv, uTime * 0.15);',
+  '  } else if (uWeatherType > 3.5 && uWeatherType < 4.5) {',
+  '    color = snow(uv, uTime);',
   '  }',
-  // Rain: vertically elongated streak
-  '  else if (uWeatherType > 1.5 && uWeatherType < 2.5) {',
-  '    float streak = length(vec2(center.x * 3.0, center.y));',
-  '    alpha = smoothstep(0.5, 0.05, streak);',
-  '  }',
-  // Fog: very soft, wide glow
-  '  else if (uWeatherType > 2.5 && uWeatherType < 3.5) {',
-  '    alpha = smoothstep(0.5, 0.0, dist * 0.7);',
-  '    alpha *= 0.6;',
-  '  }',
-  // Snow: circular glow
-  '  else {',
-  '    alpha = smoothstep(0.5, 0.0, dist);',
-  '  }',
-  // Hologram scanline effect (subtle for clear sky to keep rays clean)
-  '  float scanStr = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 0.08 : 0.18;',
-  '  float scanline = (1.0 - scanStr) + scanStr * sin(gl_FragCoord.y * 2.5 + uTime * 2.0);',
-  '  vec3 color = mix(uColorSecondary, uColorPrimary, vRandom);',
-  // Inner core brightening (stronger for light rays)
-  '  float core = smoothstep(0.3, 0.0, dist);',
-  '  float coreBoost = (uWeatherType > 0.5 && uWeatherType < 1.5) ? 0.5 : 0.3;',
-  '  color += core * coreBoost;',
-  '  alpha *= vOpacity * uOpacity * scanline;',
-  '  gl_FragColor = vec4(color, alpha);',
+  '',
+  '  float scan = 0.92 + 0.08 * sin(gl_FragCoord.y * 2.5 + uTime * 1.5);',
+  '  color *= scan;',
+  '  color *= uOpacity;',
+  '  gl_FragColor = vec4(color, 1.0);',
   '}',
 ].join('\n');
 
 export function createWeatherBanner(mainRenderer) {
   var scene = new THREE.Scene();
-  var camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
-  camera.position.z = 5;
+  var camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-  var geometry = new THREE.BufferGeometry();
-  var positions = new Float32Array(PARTICLE_COUNT * 3);
-  var sizes = new Float32Array(PARTICLE_COUNT);
-  var opacities = new Float32Array(PARTICLE_COUNT);
-  var randoms = new Float32Array(PARTICLE_COUNT);
-
-  for (var i = 0; i < PARTICLE_COUNT; i++) {
-    positions[i * 3]     = (Math.random() - 0.5) * 2.5;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 2.5;
-    positions[i * 3 + 2] = 0;
-    sizes[i] = 2.0 + Math.random() * 5.0;
-    opacities[i] = 0.2 + Math.random() * 0.8;
-    randoms[i] = Math.random();
-  }
-
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-  geometry.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
-  geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
+  var size = mainRenderer.getSize(new THREE.Vector2());
 
   var material = new THREE.ShaderMaterial({
-    transparent: true,
     depthTest: false,
-    blending: THREE.AdditiveBlending,
     uniforms: {
       uTime: { value: 0 },
-      uColorPrimary: { value: new THREE.Vector3(1, 1, 1) },
-      uColorSecondary: { value: new THREE.Vector3(0.8, 0.8, 0.8) },
+      uResolution: { value: new THREE.Vector2(size.x, 120) },
       uWeatherType: { value: 0 },
       uOpacity: { value: 0 },
-      uPixelRatio: { value: mainRenderer.getPixelRatio() },
     },
-    vertexShader: vertexShader,
-    fragmentShader: fragmentShader,
+    vertexShader: bannerVertexShader,
+    fragmentShader: bannerFragmentShader,
   });
 
-  var points = new THREE.Points(geometry, material);
-  scene.add(points);
+  var quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+  scene.add(quad);
 
   return {
     scene: scene,
@@ -176,13 +222,7 @@ export function setWeatherBanner(banner, weather) {
   if (backdrop) backdrop.style.opacity = '1';
 
   banner.targetOpacity = 1;
-  var colors = WEATHER_COLORS[weather];
-  if (!colors) return;
-
-  var u = banner.material.uniforms;
-  u.uColorPrimary.value.set(colors.primary[0], colors.primary[1], colors.primary[2]);
-  u.uColorSecondary.value.set(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-  u.uWeatherType.value = WEATHER_TYPE_MAP[weather] || 0;
+  banner.material.uniforms.uWeatherType.value = WEATHER_TYPE_MAP[weather] || 0;
 }
 
 export function updateWeatherBanner(banner, elapsed) {
@@ -210,6 +250,9 @@ export function renderWeatherBanner(banner, renderer) {
   var header = document.querySelector('.header');
   var headerH = header ? header.offsetHeight : 95;
   var bannerH = 120;
+
+  // Update resolution uniform for correct UV mapping
+  banner.material.uniforms.uResolution.value.set(size.x, bannerH);
 
   // WebGL y=0 is bottom; scissor in CSS pixels (Three.js handles pixel ratio)
   var scissorY = size.y - headerH - bannerH;
