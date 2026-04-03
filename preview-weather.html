@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Weather Banner Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0c10; color: #e8e6e1; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .header { padding: 20px 30px; background: rgba(26, 39, 68, 0.95); border-bottom: 1px solid #252a36; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #8a8b8e; }
+    .header h1 span { display: block; font-size: 24px; letter-spacing: -0.02em; text-transform: none; color: #e8e6e1; margin-top: 4px; }
+    .banner-area { position: relative; width: 100%; height: 120px; overflow: hidden; }
+    .banner-area canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .fake-scene { height: 400px; background: radial-gradient(ellipse at 50% 40%, #12151c, #0a0c10); display: grid; place-items: center; color: #55575c; font-size: 14px; letter-spacing: 0.08em; }
+    .controls { display: flex; gap: 10px; padding: 16px 30px; background: #12151c; border-bottom: 1px solid #252a36; }
+    .btn { padding: 8px 20px; border-radius: 20px; border: 1px solid #252a36; background: transparent; color: #8a8b8e; font-size: 13px; font-family: inherit; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { border-color: #8a8b8e; color: #e8e6e1; }
+    .btn.active { background: #1a1e28; border-color: #4fc3f7; color: #e8e6e1; }
+    .label { padding: 16px 30px 8px; color: #55575c; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>data.gouv.fr<span>Weather Banner Preview</span></h1>
+  </div>
+  <div class="banner-area">
+    <canvas id="weather-canvas"></canvas>
+  </div>
+  <div class="controls">
+    <button class="btn" data-weather="none">None</button>
+    <button class="btn active" data-weather="clear">Clear Sky</button>
+    <button class="btn" data-weather="rain">Rain</button>
+    <button class="btn" data-weather="fog">Fog</button>
+    <button class="btn" data-weather="snow">Snow</button>
+  </div>
+  <div class="label">3D scene would be below</div>
+  <div class="fake-scene">[ 3D SCENE PLACEHOLDER ]</div>
+
+<script>
+const canvas = document.getElementById('weather-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+let currentWeather = 'clear';
+let particles = [];
+let t = 0;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = rect.width; H = rect.height;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+}
+resize();
+window.addEventListener('resize', () => { ctx.setTransform(1,0,0,1,0,0); resize(); initParticles(); });
+
+// --- Particle init per weather type ---
+function initParticles() {
+  particles = [];
+  if (currentWeather === 'rain') {
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        len: 10 + Math.random() * 25,
+        speed: 5 + Math.random() * 8,
+        thickness: 0.4 + Math.random() * 1.2,
+        opacity: 0.12 + Math.random() * 0.4,
+        drift: -0.3 - Math.random() * 1.2,
+      });
+    }
+  } else if (currentWeather === 'snow') {
+    for (let i = 0; i < 70; i++) {
+      particles.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 1 + Math.random() * 3.5,
+        speed: 0.3 + Math.random() * 1,
+        wobbleSpeed: 0.4 + Math.random() * 1.5,
+        wobbleAmp: 0.3 + Math.random() * 0.8,
+        phase: Math.random() * Math.PI * 2,
+        opacity: 0.15 + Math.random() * 0.5,
+        blur: Math.random() > 0.5,
+      });
+    }
+  } else if (currentWeather === 'fog') {
+    for (let i = 0; i < 14; i++) {
+      particles.push({
+        x: Math.random() * W * 2 - W * 0.5,
+        y: 5 + Math.random() * (H - 10),
+        w: 200 + Math.random() * 500,
+        h: 25 + Math.random() * 50,
+        speed: 0.12 + Math.random() * 0.35,
+        opacity: 0.03 + Math.random() * 0.08,
+        phase: Math.random() * Math.PI * 2,
+        vertSpeed: 0.08 + Math.random() * 0.2,
+      });
+    }
+  } else if (currentWeather === 'clear') {
+    // God rays
+    for (let i = 0; i < 8; i++) {
+      particles.push({
+        type: 'ray',
+        angle: -0.55 + i * 0.16,
+        width: 18 + Math.random() * 35,
+        opacity: 0.025 + Math.random() * 0.05,
+        phase: Math.random() * Math.PI * 2,
+        shimmerSpeed: 0.3 + Math.random() * 0.8,
+      });
+    }
+    // Dust motes
+    for (let i = 0; i < 30; i++) {
+      particles.push({
+        type: 'mote',
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 0.5 + Math.random() * 2,
+        speedX: 0.08 + Math.random() * 0.25,
+        speedY: -0.03 - Math.random() * 0.12,
+        opacity: 0.15 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        twinkleSpeed: 1 + Math.random() * 3,
+      });
+    }
+  }
+}
+initParticles();
+
+// --- Draw functions ---
+function drawRain() {
+  // Ambient glow
+  const glow = ctx.createLinearGradient(0, 0, 0, H);
+  glow.addColorStop(0, 'rgba(40, 80, 140, 0.06)');
+  glow.addColorStop(1, 'rgba(40, 80, 140, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const d of particles) {
+    d.y += d.speed;
+    d.x += d.drift;
+    if (d.y > H + d.len) { d.y = -d.len - Math.random() * 20; d.x = Math.random() * W; }
+    if (d.x < -30) d.x = W + 30;
+
+    const grad = ctx.createLinearGradient(d.x, d.y - d.len, d.x + d.drift * 2.5, d.y);
+    grad.addColorStop(0, 'rgba(120, 175, 235, 0)');
+    grad.addColorStop(0.4, `rgba(150, 195, 255, ${d.opacity * 0.4})`);
+    grad.addColorStop(1, `rgba(190, 215, 255, ${d.opacity})`);
+
+    ctx.beginPath();
+    ctx.moveTo(d.x, d.y - d.len);
+    ctx.lineTo(d.x + d.drift * 2.5, d.y);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = d.thickness;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Tip glow
+    ctx.beginPath();
+    ctx.arc(d.x + d.drift * 2.5, d.y, d.thickness + 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180, 215, 255, ${d.opacity * 0.3})`;
+    ctx.fill();
+  }
+}
+
+function drawSnow() {
+  // Cold ambient
+  const glow = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.4);
+  glow.addColorStop(0, 'rgba(140, 160, 210, 0.03)');
+  glow.addColorStop(1, 'rgba(100, 120, 170, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const f of particles) {
+    f.y += f.speed;
+    f.x += Math.sin(t * f.wobbleSpeed + f.phase) * f.wobbleAmp;
+    if (f.y > H + f.r * 4) { f.y = -f.r * 4; f.x = Math.random() * W; }
+    if (f.x < -20) f.x = W + 20;
+    if (f.x > W + 20) f.x = -20;
+
+    ctx.save();
+    if (f.blur) ctx.filter = 'blur(2px)';
+
+    // Outer glow
+    const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 3);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${f.opacity * 0.9})`);
+    grad.addColorStop(0.35, `rgba(215, 225, 250, ${f.opacity * 0.4})`);
+    grad.addColorStop(1, 'rgba(190, 205, 240, 0)');
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.r * 3, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Bright core
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, f.r * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${f.opacity * 0.85})`;
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+function drawFog() {
+  for (const l of particles) {
+    l.x += l.speed;
+    if (l.x > W + l.w / 2) l.x = -l.w;
+    const yOff = Math.sin(t * l.vertSpeed + l.phase) * 8;
+
+    ctx.save();
+    ctx.filter = 'blur(22px)';
+    const grad = ctx.createRadialGradient(
+      l.x + l.w/2, l.y + yOff + l.h/2, 0,
+      l.x + l.w/2, l.y + yOff + l.h/2, l.w/2
+    );
+    grad.addColorStop(0, `rgba(165, 168, 190, ${l.opacity * 1.5})`);
+    grad.addColorStop(0.5, `rgba(145, 148, 175, ${l.opacity})`);
+    grad.addColorStop(1, 'rgba(125, 128, 155, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(l.x, l.y + yOff, l.w, l.h);
+    ctx.restore();
+  }
+
+  // Overall haze
+  ctx.save();
+  ctx.filter = 'blur(35px)';
+  const hOff = Math.sin(t * 0.1) * 0.015;
+  const haze = ctx.createLinearGradient(0, 0, W, 0);
+  haze.addColorStop(0, `rgba(150, 150, 175, ${0.025 + hOff})`);
+  haze.addColorStop(0.5, `rgba(145, 148, 168, ${0.04 + hOff})`);
+  haze.addColorStop(1, `rgba(135, 138, 162, ${0.02 + hOff})`);
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+function drawClear() {
+  // Warm glow from top-left
+  const ambient = ctx.createRadialGradient(0, 0, 0, 0, 0, W * 0.65);
+  ambient.addColorStop(0, 'rgba(255, 220, 100, 0.06)');
+  ambient.addColorStop(0.5, 'rgba(255, 185, 60, 0.025)');
+  ambient.addColorStop(1, 'rgba(255, 160, 40, 0)');
+  ctx.fillStyle = ambient;
+  ctx.fillRect(0, 0, W, H);
+
+  // God rays
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const ray of particles) {
+    if (ray.type !== 'ray') continue;
+    const shimmer = Math.sin(t * ray.shimmerSpeed + ray.phase) * 0.3 + 0.7;
+    const a = ray.angle + Math.sin(t * 0.25 + ray.phase) * 0.025;
+    const dx = Math.cos(a) * W * 1.5;
+    const dy = Math.sin(a) * W * 1.5;
+    const nx = -Math.sin(a), ny = Math.cos(a);
+    const hw = ray.width * shimmer;
+
+    ctx.beginPath();
+    ctx.moveTo(-nx * 3, -ny * 3);
+    ctx.lineTo(nx * 3, ny * 3);
+    ctx.lineTo(dx + nx * hw, dy + ny * hw);
+    ctx.lineTo(dx - nx * hw, dy - ny * hw);
+    ctx.closePath();
+
+    const grad = ctx.createLinearGradient(0, 0, dx, dy);
+    grad.addColorStop(0, `rgba(255, 215, 80, ${ray.opacity * shimmer})`);
+    grad.addColorStop(0.35, `rgba(255, 195, 60, ${ray.opacity * shimmer * 0.6})`);
+    grad.addColorStop(1, 'rgba(255, 175, 40, 0)');
+    ctx.fillStyle = grad;
+    ctx.filter = 'blur(14px)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Dust motes
+  for (const m of particles) {
+    if (m.type !== 'mote') continue;
+    m.x += m.speedX;
+    m.y += m.speedY + Math.sin(t * 0.8 + m.phase) * 0.08;
+    if (m.x > W + 15) { m.x = -15; m.y = Math.random() * H; }
+    if (m.y < -15) { m.y = H + 15; }
+
+    const twinkle = Math.sin(t * m.twinkleSpeed + m.phase) * 0.4 + 0.6;
+    const grad = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 3.5);
+    grad.addColorStop(0, `rgba(255, 230, 140, ${m.opacity * twinkle})`);
+    grad.addColorStop(0.4, `rgba(255, 210, 100, ${m.opacity * twinkle * 0.3})`);
+    grad.addColorStop(1, 'rgba(255, 200, 80, 0)');
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r * 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+}
+
+// --- Animation loop ---
+function animate() {
+  requestAnimationFrame(animate);
+  t += 0.016;
+  ctx.clearRect(0, 0, W, H);
+  if (currentWeather === 'rain') drawRain();
+  else if (currentWeather === 'snow') drawSnow();
+  else if (currentWeather === 'fog') drawFog();
+  else if (currentWeather === 'clear') drawClear();
+}
+animate();
+
+// --- Button controls ---
+document.querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentWeather = btn.dataset.weather;
+    initParticles();
+  });
+});
+</script>
+</body>
+</html>
