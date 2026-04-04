@@ -30,7 +30,6 @@
     .time-indicator { text-align: center; }
     .time-indicator__icon { font-size: 32px; line-height: 1; transition: all 0.6s ease; }
     .time-indicator__label { font-family: var(--font-display); font-size: 11px; color: var(--text-muted); letter-spacing: 0.1em; margin-top: 4px; }
-    .weather-banner-backdrop { position: absolute; left: 0; right: 0; height: 120px; background: linear-gradient(180deg, rgba(10,12,16,0.55) 0%, rgba(10,12,16,0.0) 100%); pointer-events: none; z-index: 0; transition: opacity 0.4s; }
     .sidebar { position: absolute; left: 36px; top: 145px; bottom: 36px; display: flex; flex-direction: column; justify-content: space-between; width: 180px; gap: 4px; }
     .stats { display: flex; flex-direction: column; gap: 8px; background: radial-gradient(ellipse at 20% 20%, rgba(255, 255, 255, 1), rgba(200, 210, 230, 0.90)); padding: 12px; border-radius: 12px; }
     .stats__item { display: flex; flex-direction: column; }
@@ -86,7 +85,6 @@
       </div>
       <div class="header__meta">Source: ONISR / BAAC<br><a href="https://www.data.gouv.fr" target="_blank">data.gouv.fr</a> · <a href="https://mcp.data.gouv.fr/mcp" target="_blank">MCP</a></div>
     </div>
-    <div class="weather-banner-backdrop" id="weather-banner-backdrop" style="top:0;opacity:0;"></div>
     <div class="sidebar">
       <div class="stats" id="stats">
         <div class="stats__item"><div class="stats__value" id="stat-total">&mdash;</div><div class="stats__label">Accidents</div></div>

@@ -6,3 +6,4 @@ dist/
 public/assets/accidents-*.json
 public/assets/france-*.json
 *.log
+preview-weather.html
