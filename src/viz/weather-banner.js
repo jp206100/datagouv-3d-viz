@@ -15,12 +15,12 @@ function resize() {
   var headerH = header ? header.offsetHeight : 95;
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth;
-  H = BANNER_HEIGHT;
+  H = headerH + BANNER_HEIGHT;
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   canvas.style.width = W + 'px';
   canvas.style.height = H + 'px';
-  canvas.style.top = headerH + 'px';
+  canvas.style.top = '0px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
@@ -305,7 +305,7 @@ function animate() {
 export function createWeatherBanner() {
   canvas = document.createElement('canvas');
   canvas.id = 'weather-banner-canvas';
-  canvas.style.cssText = 'position:fixed;left:0;pointer-events:none;z-index:5;visibility:hidden;';
+  canvas.style.cssText = 'position:fixed;left:0;top:0;pointer-events:none;z-index:15;visibility:hidden;';
   document.body.appendChild(canvas);
   ctx = canvas.getContext('2d');
 
