@@ -11,7 +11,7 @@ import { setupScrubber } from './ui/scrubber.js';
 import { updateStats } from './ui/stats.js';
 import { setupTooltip } from './ui/tooltip.js';
 import { setupWeatherFilters } from './ui/weather-filter.js';
-import { createWeatherBanner, setWeatherBanner, updateWeatherBanner, renderWeatherBanner } from './viz/weather-banner.js';
+import { createWeatherBanner, setWeatherBanner } from './viz/weather-banner.js';
 
 var state = {
   currentYear: 2024, currentHour: -1, autoRotate: false,
@@ -121,7 +121,7 @@ async function init() {
   updateAtmosphere(state.scene, state.currentHour);
   updateTimeUI(state.currentHour);
 
-  state.weatherBanner = createWeatherBanner(renderer);
+  state.weatherBanner = createWeatherBanner();
 
   // Start the render loop right away so the scene is visible
   function animate() {
@@ -130,9 +130,7 @@ async function init() {
     updateControls(state.controls);
     if (state.particleSystem) updateParticles(state.particleSystem, elapsed);
     if (state.pulseWaves) updatePulseWaves(state.pulseWaves, elapsed);
-    if (state.weatherBanner) updateWeatherBanner(state.weatherBanner, elapsed);
     getRenderer().render(state.scene, state.camera);
-    if (state.weatherBanner) renderWeatherBanner(state.weatherBanner, renderer);
   }
   animate();
 
