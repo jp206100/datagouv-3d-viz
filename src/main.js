@@ -152,6 +152,18 @@ async function init() {
   var btnReset = document.getElementById('btn-reset');
   if (btnReset) btnReset.addEventListener('click', function() { if (state.controls) state.controls.reset(); });
 
+  // Mobile panel toggle
+  var mobileToggle = document.getElementById('mobile-toggle');
+  var sidebar = document.querySelector('.sidebar');
+  if (mobileToggle && sidebar) {
+    // Start collapsed on mobile
+    if (window.innerWidth <= 768) sidebar.classList.add('collapsed');
+    mobileToggle.addEventListener('click', function() {
+      sidebar.classList.toggle('collapsed');
+      mobileToggle.textContent = sidebar.classList.contains('collapsed') ? '\u2630 Panel' : '\u2715 Close';
+    });
+  }
+
   // Now fetch data with live status feedback
   setLoadingProgress(15);
   setLoadingText('CONNECTING TO DATA.GOUV.FR');
