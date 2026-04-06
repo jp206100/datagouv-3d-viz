@@ -160,7 +160,7 @@ async function init() {
     if (window.innerWidth <= 768) sidebar.classList.add('collapsed');
     mobileToggle.addEventListener('click', function() {
       sidebar.classList.toggle('collapsed');
-      mobileToggle.textContent = sidebar.classList.contains('collapsed') ? '\u2630 Panel' : '\u2715 Close';
+      mobileToggle.textContent = sidebar.classList.contains('collapsed') ? '\u2630 Filters' : '\u2715 Close';
     });
   }
 
