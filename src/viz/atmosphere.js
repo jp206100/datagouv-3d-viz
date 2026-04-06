@@ -41,7 +41,9 @@ export function updateAtmosphere(scene, hour) {
 
 export function getTimeLabel(hour) {
   if (hour < 0) return 'ALL';
-  return String(hour).padStart(2, '0') + ':00';
+  var suffix = hour < 12 ? ' AM' : ' PM';
+  var h = hour % 12 || 12;
+  return h + ':00' + suffix;
 }
 
 export function getTimeIcon(hour) {

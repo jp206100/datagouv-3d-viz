@@ -24,7 +24,7 @@ export function setupTooltip(camera, particleSystem, processedData) {
         tooltip.innerHTML = '<strong>' + (sevLabels[record.severity] || record.severity) + '</strong><br>' +
           record.lat.toFixed(4) + ' N, ' + record.lng.toFixed(4) + ' E<br>' +
           '<span style="color:var(--text-secondary)">' + conditions + '</span><br>' +
-          '<span style="color:var(--text-muted)">Month ' + record.month + ' at ' + String(record.hour).padStart(2,'0') + ':00</span>';
+          '<span style="color:var(--text-muted)">Month ' + record.month + ' at ' + (record.hour % 12 || 12) + ':00' + (record.hour < 12 ? ' AM' : ' PM') + '</span>';
         var tx = e.clientX + 16;
         var ty = e.clientY - 16;
         // Clamp tooltip within viewport
