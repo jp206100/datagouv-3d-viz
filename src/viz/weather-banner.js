@@ -298,6 +298,17 @@ function animate() {
   else if (currentWeather === 'snow') drawSnow();
   else if (currentWeather === 'fog') drawFog();
   else if (currentWeather === 'normal') drawClear();
+
+  // Fade out the bottom edge so the banner blends smoothly
+  var fadeH = BANNER_HEIGHT * 0.6;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  var fadeGrad = ctx.createLinearGradient(0, H - fadeH, 0, H);
+  fadeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  fadeGrad.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = fadeGrad;
+  ctx.fillRect(0, H - fadeH, W, fadeH);
+  ctx.restore();
 }
 
 /* ── Public API ─────────────────────────────────────── */
