@@ -5,7 +5,7 @@ class SimpleOrbitControls {
     this.camera = camera;
     this.domElement = domElement;
     this.target = new THREE.Vector3(0, 0, 0);
-    this.autoRotate = false;
+    this.autoRotate = true;
     this.autoRotateSpeed = 0.5;
     this.spherical = new THREE.Spherical();
     this.sphericalDelta = new THREE.Spherical();
