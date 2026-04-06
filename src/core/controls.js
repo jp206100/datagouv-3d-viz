@@ -14,6 +14,9 @@ class SimpleOrbitControls {
     this._dampingFactor = 0.05;
     this._initialPosition = camera.position.clone();
     this._initialTarget = this.target.clone();
+    this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    this._raycaster = new THREE.Raycaster();
+    this._zoomNdc = new THREE.Vector2();
     const offset = camera.position.clone().sub(this.target);
     this.spherical.setFromVector3(offset);
     this._bindEvents();
@@ -36,8 +39,11 @@ class SimpleOrbitControls {
         var pts = Array.from(this._activeTouches.values());
         var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
         if (this._lastPinchDist > 0) {
-          var scale = this._lastPinchDist / dist;
-          this.spherical.radius = Math.max(10, Math.min(100, this.spherical.radius * scale));
+          var factor = this._lastPinchDist / dist;
+          var zoomIn = factor < 1;
+          var midX = (pts[0].x + pts[1].x) / 2;
+          var midY = (pts[0].y + pts[1].y) / 2;
+          this._zoomTowardCursor(midX, midY, factor, zoomIn);
         }
         this._lastPinchDist = dist;
         this._isDragging = false;
@@ -60,10 +66,33 @@ class SimpleOrbitControls {
     });
     this.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
-      this.spherical.radius = Math.max(10, Math.min(100, this.spherical.radius * (e.deltaY > 0 ? 1.1 : 0.9)));
+      var zoomIn = e.deltaY < 0;
+      var factor = zoomIn ? 0.9 : 1.1;
+      this._zoomTowardCursor(e.clientX, e.clientY, factor, zoomIn);
     }, { passive: false });
     // Prevent default touch behavior (scrolling/pinch-zoom on the page)
     this.domElement.style.touchAction = 'none';
+  }
+  _zoomTowardCursor(clientX, clientY, factor, zoomIn) {
+    var newRadius = this.spherical.radius * factor;
+    newRadius = Math.max(10, Math.min(100, newRadius));
+    // Only shift target when zooming in and not already at min distance
+    if (zoomIn && newRadius > 10) {
+      var rect = this.domElement.getBoundingClientRect();
+      this._zoomNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      this._zoomNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      this._raycaster.setFromCamera(this._zoomNdc, this.camera);
+      var hitPoint = new THREE.Vector3();
+      if (this._raycaster.ray.intersectPlane(this._groundPlane, hitPoint)) {
+        // Lerp target toward the cursor's ground point (stronger when zoomed out)
+        var strength = 0.1;
+        this.target.lerp(hitPoint, strength);
+      }
+    }
+    this.spherical.radius = newRadius;
+    // Recompute spherical from new target
+    var offset = this.camera.position.clone().sub(this.target);
+    this.spherical.setFromVector3(offset);
   }
   reset() {
     this.camera.position.copy(this._initialPosition);
