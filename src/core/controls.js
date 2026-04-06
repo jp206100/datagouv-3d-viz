@@ -76,23 +76,29 @@ class SimpleOrbitControls {
   _zoomTowardCursor(clientX, clientY, factor, zoomIn) {
     var newRadius = this.spherical.radius * factor;
     newRadius = Math.max(10, Math.min(100, newRadius));
-    // Only shift target when zooming in and not already at min distance
-    if (zoomIn && newRadius > 10) {
+    var actualFactor = newRadius / this.spherical.radius;
+    if (zoomIn) {
+      // Shift the orbit target toward the ground point under the cursor.
+      // The lerp amount matches the zoom ratio so the cursor point stays
+      // visually fixed on screen (same principle as Google Maps).
       var rect = this.domElement.getBoundingClientRect();
       this._zoomNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
       this._zoomNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       this._raycaster.setFromCamera(this._zoomNdc, this.camera);
       var hitPoint = new THREE.Vector3();
       if (this._raycaster.ray.intersectPlane(this._groundPlane, hitPoint)) {
-        // Lerp target toward the cursor's ground point (stronger when zoomed out)
-        var strength = 0.1;
-        this.target.lerp(hitPoint, strength);
+        var t = 1 - actualFactor; // e.g. 0.1 when factor is 0.9
+        this.target.lerp(hitPoint, t);
       }
+    } else {
+      // When zooming out, gradually pull the target back toward the initial
+      // center so the user returns to the full-map overview.
+      var t = 1 - (1 / actualFactor);
+      this.target.lerp(this._initialTarget, t);
     }
+    // Only update radius — leave theta/phi unchanged so the camera
+    // dollies straight in/out without pivoting.
     this.spherical.radius = newRadius;
-    // Recompute spherical from new target
-    var offset = this.camera.position.clone().sub(this.target);
-    this.spherical.setFromVector3(offset);
   }
   reset() {
     this.camera.position.copy(this._initialPosition);
