@@ -4,17 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Accidents de France</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
   <style>
+    @font-face {
+      font-family: 'DIN 1451 Mittelschrift';
+      src: url('/fonts/din1451alt.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'DIN 1451 Mittelschrift';
+      src: url('/fonts/din1451alt G.ttf') format('truetype');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
     :root {
       --bg-deep: #0a0c10; --bg-surface: #12151c; --bg-elevated: #1a1e28;
       --border: #252a36; --text-primary: #e8e6e1; --text-secondary: #8a8b8e;
       --text-muted: #55575c; --accent-fatal: #ff3b30; --accent-severe: #ff9500;
       --accent-minor: #30d158; --accent-blue: #4fc3f7; --accent-glow: #ff6b3b;
       --accent-rain: #5b9bd5; --accent-fog: #9e8dc7;
-      --font-display: 'Inter', sans-serif; --font-body: 'Inter', sans-serif;
+      --font-display: 'DIN 1451 Mittelschrift', sans-serif; --font-body: 'DIN 1451 Mittelschrift', sans-serif;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-deep); color: var(--text-primary); font-family: var(--font-body); }
