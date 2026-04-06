@@ -14,7 +14,7 @@ import { setupWeatherFilters } from './ui/weather-filter.js';
 import { createWeatherBanner, setWeatherBanner } from './viz/weather-banner.js';
 
 var state = {
-  currentYear: 2024, currentHour: -1, autoRotate: false,
+  currentYear: 2024, currentHour: -1, autoRotate: true,
   pulseEnabled: true, weatherFilter: 'all',
   allData: null, particleSystem: null, pulseWaves: null,
   scene: null, camera: null, controls: null, clock: null,
