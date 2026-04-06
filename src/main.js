@@ -181,7 +181,7 @@ async function init() {
         setLoadingProgress(15 + yearPct);
         if (info.yearPhase === 'downloading') {
           setLoadingText('DOWNLOADING ' + info.year + ' DATA');
-          setLoadingDetail('Fetching CSV files...');
+          setLoadingDetail('Fetching data...');
         } else if (info.yearPhase === 'parsing') {
           setLoadingText('PROCESSING ' + info.year);
           setLoadingDetail('Parsing records...');
