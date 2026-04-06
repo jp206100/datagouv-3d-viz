@@ -19,18 +19,51 @@ class SimpleOrbitControls {
     this._bindEvents();
   }
   _bindEvents() {
-    this.domElement.addEventListener('pointerdown', (e) => { this._isDragging = true; this._previousMouse.set(e.clientX, e.clientY); });
+    this._activeTouches = new Map();
+    this._lastPinchDist = 0;
+
+    this.domElement.addEventListener('pointerdown', (e) => {
+      this._activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this._activeTouches.size === 1) {
+        this._isDragging = true;
+        this._previousMouse.set(e.clientX, e.clientY);
+      }
+    });
     this.domElement.addEventListener('pointermove', (e) => {
+      this._activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // Pinch-to-zoom with two fingers
+      if (this._activeTouches.size === 2) {
+        var pts = Array.from(this._activeTouches.values());
+        var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        if (this._lastPinchDist > 0) {
+          var scale = this._lastPinchDist / dist;
+          this.spherical.radius = Math.max(10, Math.min(100, this.spherical.radius * scale));
+        }
+        this._lastPinchDist = dist;
+        this._isDragging = false;
+        return;
+      }
       if (!this._isDragging) return;
       this.sphericalDelta.theta -= (e.clientX - this._previousMouse.x) * 0.005;
       this.sphericalDelta.phi -= (e.clientY - this._previousMouse.y) * 0.005;
       this._previousMouse.set(e.clientX, e.clientY);
     });
-    this.domElement.addEventListener('pointerup', () => { this._isDragging = false; });
+    this.domElement.addEventListener('pointerup', (e) => {
+      this._activeTouches.delete(e.pointerId);
+      if (this._activeTouches.size < 2) this._lastPinchDist = 0;
+      if (this._activeTouches.size === 0) this._isDragging = false;
+    });
+    this.domElement.addEventListener('pointercancel', (e) => {
+      this._activeTouches.delete(e.pointerId);
+      if (this._activeTouches.size < 2) this._lastPinchDist = 0;
+      if (this._activeTouches.size === 0) this._isDragging = false;
+    });
     this.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.spherical.radius = Math.max(10, Math.min(100, this.spherical.radius * (e.deltaY > 0 ? 1.1 : 0.9)));
     }, { passive: false });
+    // Prevent default touch behavior (scrolling/pinch-zoom on the page)
+    this.domElement.style.touchAction = 'none';
   }
   reset() {
     this.camera.position.copy(this._initialPosition);
