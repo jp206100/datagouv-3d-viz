@@ -5,7 +5,7 @@ let renderer = null;
 export function createScene(container) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0a0c10);
-  scene.fog = new THREE.FogExp2(0x0a0c10, 0.012);
+  scene.fog = new THREE.FogExp2(0x0a0c10, 0.025);
 
   const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
   camera.position.set(0, 35, 40);
