@@ -1,3 +1,5 @@
+import { decodeAccidents } from './accident-codec.js';
+
 var DATAGOUV_API = 'https://www.data.gouv.fr/api/1';
 var MCP_ENDPOINT = 'https://mcp.data.gouv.fr/mcp';
 var BAAC_DATASET_ID = '53698f4ca3a729239d2036df';
@@ -153,6 +155,37 @@ export async function fetchAccidentDataForYear(year, onStatus) {
 
 /* ── Cached data loader ──────────────────────────────── */
 
+var GZIP_MAGIC = [0x1f, 0x8b];
+
+/**
+ * Gunzip an ArrayBuffer if it is actually gzipped. Hosts vary on whether they
+ * serve .gz with Content-Encoding: gzip (in which case the browser has already
+ * decoded it), so sniff the magic bytes rather than assuming either way.
+ */
+async function gunzipIfNeeded(buffer) {
+  var head = new Uint8Array(buffer, 0, Math.min(2, buffer.byteLength));
+  if (head[0] !== GZIP_MAGIC[0] || head[1] !== GZIP_MAGIC[1]) return buffer;
+  if (typeof DecompressionStream === 'undefined') throw new Error('DecompressionStream unavailable');
+  var stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
+/**
+ * Load the pre-packed binary dataset. ~0.4 MB over the wire versus ~95 MB of
+ * CSV, so this is the path that should serve essentially every visitor.
+ */
+export async function loadPackedAccidentData(onStatus) {
+  if (!onStatus) onStatus = function(){};
+  onStatus({ phase: 'cache', message: 'Loading dataset...' });
+  var res = await fetch('/data/accidents.bin.gz');
+  if (!res.ok) return null;
+  var compressed = await res.arrayBuffer();
+  onStatus({ phase: 'cache', message: 'Unpacking records...' });
+  var records = decodeAccidents(await gunzipIfNeeded(compressed));
+  onStatus({ phase: 'done', records: records.length });
+  return records;
+}
+
 export async function loadCachedAccidentData(onStatus) {
   if (!onStatus) onStatus = function(){};
   onStatus({ phase: 'cache', message: 'Loading cached data...' });
@@ -175,7 +208,20 @@ export async function loadAccidentData(onStatus, onYearData) {
   if (!onStatus) onStatus = function(){};
   if (!onYearData) onYearData = function(){};
 
-  // Try pre-fetched data first
+  // Try the packed binary dataset first — this is the expected path.
+  try {
+    var packed = await loadPackedAccidentData(onStatus);
+    if (packed && packed.length > 0) {
+      console.log('Loaded ' + packed.length + ' accident records from packed dataset');
+      onYearData(packed);
+      onStatus({ phase: 'done', records: packed.length });
+      return packed;
+    }
+  } catch (e) {
+    console.warn('Packed dataset unavailable:', e.message);
+  }
+
+  // Then any legacy pre-fetched JSON
   try {
     var cached = await loadCachedAccidentData(onStatus);
     if (cached && cached.length > 0) {
@@ -205,7 +251,7 @@ export async function loadAccidentData(onStatus, onYearData) {
           records: allRecords.length + (info.records || 0),
         });
       });
-      allRecords.push.apply(allRecords, yearData);
+      for (var r = 0; r < yearData.length; r++) allRecords.push(yearData[r]);
       console.log('Fetched ' + yearData.length + ' records for ' + year);
       onYearData(yearData);
     } catch (err) {

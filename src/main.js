@@ -197,7 +197,9 @@ async function init() {
     },
     // onYearData: progressively add data to the scene
     function(yearRecords) {
-      state.allRawRecords.push.apply(state.allRawRecords, yearRecords);
+      // Appending with push.apply blows the call stack once a batch reaches a few
+      // hundred thousand records, which the packed dataset delivers in one go.
+      for (var i = 0; i < yearRecords.length; i++) state.allRawRecords.push(yearRecords[i]);
       rebuildViz();
     }
   );
