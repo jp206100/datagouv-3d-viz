@@ -1,18 +1,21 @@
 /**
- * Fetch BAAC accident data from data.gouv.fr and save as JSON.
+ * Fetch BAAC accident data from data.gouv.fr and save as a packed binary file.
  *
  * Downloads "caracteristiques" (location/time/conditions) and "usagers"
  * (severity per person) CSVs for each year, joins them by accident number,
- * and writes a combined JSON file to public/data/.
+ * and writes public/data/accidents.bin.gz — the file the app loads at runtime
+ * instead of pulling ~95 MB of CSV into the browser.
  *
  * Usage:
- *   node scripts/fetch-accidents.js                 # fetch all years (2005-2023)
+ *   node scripts/fetch-accidents.js                 # fetch all years (2020-2024)
  *   node scripts/fetch-accidents.js 2022 2023       # fetch specific years
  */
 
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { gzipSync, constants as zlibConstants } from 'zlib';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { encodeAccidents } from '../src/data/accident-codec.js';
 
 var __dirname = dirname(fileURLToPath(import.meta.url));
 var OUTPUT_DIR = join(__dirname, '..', 'public', 'data');
@@ -26,7 +29,7 @@ var LIGHTING_MAP = { '1': 'day', '2': 'dusk', '3': 'night_unlit', '4': 'night_li
 var WEATHER_MAP = { '1': 'normal', '2': 'rain', '3': 'rain_heavy', '4': 'snow', '5': 'fog', '6': 'wind', '7': 'glare', '8': 'overcast', '9': 'other' };
 
 var DEFAULT_YEARS = [];
-for (var y = 2005; y <= 2023; y++) DEFAULT_YEARS.push(y);
+for (var y = 2020; y <= 2024; y++) DEFAULT_YEARS.push(y);
 
 function parseCSV(text) {
   var lines = text.split('\n');
@@ -61,29 +64,44 @@ function parseYearField(raw, fallback) {
   return fallback;
 }
 
+// BAAC CSVs are semicolon-delimited with comma decimal separators, so "48,12345"
+// has to be normalised before parseFloat, which would otherwise yield 48.
+function parseCoord(val) {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(',', '.'));
+}
+
 function worstSeverity(a, b) {
   if (!a) return b;
   if (!b) return a;
   return (SEVERITY_PRIORITY[a] || 3) < (SEVERITY_PRIORITY[b] || 3) ? a : b;
 }
 
+function sleep(ms) {
+  return new Promise(function(r) { setTimeout(r, ms); });
+}
+
+// data.gouv.fr returns intermittent 503s, especially right after a bulk download,
+// and they can persist for a minute or two — hence the long, jittered backoff.
 async function fetchWithRetry(url, retries) {
-  if (retries === undefined) retries = 3;
+  if (retries === undefined) retries = 6;
+  var lastReason = '';
   for (var attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      var backoff = Math.min(60000, 2000 * Math.pow(2, attempt - 1));
+      var wait = Math.round(backoff * (0.75 + Math.random() * 0.5));
+      console.log('  ' + lastReason + ' — retry ' + attempt + '/' + retries + ' in ' + Math.round(wait / 1000) + 's');
+      await sleep(wait);
+    }
     try {
       var res = await fetch(url);
       if (res.ok) return res;
-      if (attempt < retries) {
-        console.log('  Retry ' + (attempt + 1) + ' for ' + url.slice(0, 80) + '...');
-        await new Promise(function(r) { setTimeout(r, 1000 * Math.pow(2, attempt)); });
-      }
+      lastReason = 'HTTP ' + res.status;
     } catch (err) {
-      if (attempt === retries) throw err;
-      console.log('  Network error, retry ' + (attempt + 1) + '...');
-      await new Promise(function(r) { setTimeout(r, 1000 * Math.pow(2, attempt)); });
+      lastReason = 'Network error (' + (err.cause && err.cause.code || err.message) + ')';
     }
   }
-  throw new Error('Failed to fetch after retries: ' + url);
+  throw new Error('Failed to fetch after ' + retries + ' retries (' + lastReason + '): ' + url);
 }
 
 async function fetchDatasetResources() {
@@ -93,12 +111,13 @@ async function fetchDatasetResources() {
   return data.resources || [];
 }
 
-function findResource(resources, keyword, year) {
+function findResource(resources, keywords, year) {
+  if (typeof keywords === 'string') keywords = [keywords];
   var yearStr = String(year);
   var twoDigit = yearStr.slice(2);
   return resources.find(function(r) {
     var name = (r.title || r.url || '').toLowerCase();
-    var matchesKeyword = name.includes(keyword);
+    var matchesKeyword = keywords.some(function(kw) { return name.includes(kw); });
     var matchesYear = name.includes(yearStr) || name.includes('-' + twoDigit + '.') || name.includes('_' + twoDigit + '.') || name.includes('-' + twoDigit + '-');
     var isCSV = name.endsWith('.csv') || r.format === 'csv';
     return matchesKeyword && matchesYear && isCSV;
@@ -115,7 +134,8 @@ async function downloadCSV(resource) {
 async function fetchYearData(resources, year) {
   console.log('\n--- Year ' + year + ' ---');
 
-  var caracRes = findResource(resources, 'caract', year);
+  // 2021/2022 ship as "carcteristiques" — a typo upstream, not one here.
+  var caracRes = findResource(resources, ['caract', 'carcteristiques'], year);
   if (!caracRes) {
     console.log('  WARNING: No caracteristiques file found for ' + year + ', skipping');
     return [];
@@ -146,8 +166,8 @@ async function fetchYearData(resources, year) {
   var records = [];
   for (var i = 0; i < caracRows.length; i++) {
     var row = caracRows[i];
-    var lat = parseFloat(row.lat || 0);
-    var lng = parseFloat(row.long || 0);
+    var lat = parseCoord(row.lat);
+    var lng = parseCoord(row.long);
     if (!lat || !lng) continue;
 
     // Handle coordinates that may be stored as integers (multiply by 1e-5)
@@ -196,11 +216,19 @@ async function main() {
 
   console.log('\n=== Total records: ' + allRecords.length + ' ===');
 
-  // Save combined file
-  var outPath = join(OUTPUT_DIR, 'accidents.json');
-  writeFileSync(outPath, JSON.stringify(allRecords));
-  var sizeMB = (Buffer.byteLength(JSON.stringify(allRecords)) / 1024 / 1024).toFixed(1);
-  console.log('Saved ' + outPath + ' (' + sizeMB + ' MB)');
+  if (allRecords.length === 0) throw new Error('No records fetched — refusing to write an empty data file');
+
+  // Pack columnar + gzip. This is what the browser downloads.
+  var packed = encodeAccidents(allRecords);
+  var gzipped = gzipSync(Buffer.from(packed.buffer), { level: zlibConstants.Z_BEST_COMPRESSION });
+
+  var outPath = join(OUTPUT_DIR, 'accidents.bin.gz');
+  writeFileSync(outPath, gzipped);
+
+  var rawMB = (packed.buffer.byteLength / 1024 / 1024).toFixed(1);
+  var gzMB = (gzipped.length / 1024 / 1024).toFixed(2);
+  var jsonMB = (Buffer.byteLength(JSON.stringify(allRecords)) / 1024 / 1024).toFixed(1);
+  console.log('Saved ' + outPath + ' (' + gzMB + ' MB gzipped, ' + rawMB + ' MB packed, ' + jsonMB + ' MB as JSON)');
 
   // Print summary stats
   var bySeverity = { fatal: 0, hospitalized: 0, minor: 0 };

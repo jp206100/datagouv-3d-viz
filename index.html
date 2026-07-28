@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Accidents de France — 3D visualization of French road accident data</title>
-  <meta name="description" content="Interactive 3D visualization of French traffic accident data (2020–2024) from data.gouv.fr. Explore accident hotspots, severity, weather conditions, and time-of-day patterns across France." />
+  <meta name="description" content="Interactive 3D map of 250,000+ French road accidents (2020–2024) from data.gouv.fr. Explore hotspots, severity, weather and time-of-day patterns." />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+  <!-- Preload the display font: it renders the header and stat values above the fold -->
+  <link rel="preload" href="/fonts/din1451alt.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/din1451alt-g.woff2" as="font" type="font/woff2" crossorigin />
 
   <!-- Open Graph / Facebook / LinkedIn -->
   <meta property="og:type" content="website" />
@@ -26,17 +31,101 @@
   <meta name="twitter:description" content="Interactive 3D visualization of French traffic accident data (2020–2024) from data.gouv.fr. Explore accident hotspots, severity, weather conditions, and time-of-day patterns across France." />
   <meta name="twitter:image" content="https://datagouv-3d-viz.vercel.app/preview.jpg" />
   <meta name="twitter:image:alt" content="Screenshot of the Accidents de France 3D visualization showing accident hotspots across France" />
+
+  <!-- Structured data: the underlying open dataset, plus the app that renders it -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Dataset",
+        "@id": "https://datagouv-3d-viz.vercel.app/#dataset",
+        "name": "French road accident records, 2020–2024 (BAAC)",
+        "alternateName": "Accidents corporels de la circulation routière en France",
+        "description": "Geolocated records of personal-injury road accidents in metropolitan France between 2020 and 2024, derived from the BAAC (Bulletin d'Analyse des Accidents Corporels) files published on data.gouv.fr. Each record carries a latitude/longitude, date, hour, injury severity, weather condition, lighting condition and department.",
+        "url": "https://datagouv-3d-viz.vercel.app/",
+        "license": "https://www.etalab.gouv.fr/licence-ouverte-open-licence",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "keywords": [
+          "road safety",
+          "traffic accidents",
+          "France",
+          "open data",
+          "BAAC",
+          "ONISR",
+          "data.gouv.fr",
+          "geospatial",
+          "3D visualization"
+        ],
+        "temporalCoverage": "2020/2024",
+        "spatialCoverage": {
+          "@type": "Place",
+          "name": "Metropolitan France",
+          "geo": {
+            "@type": "GeoShape",
+            "box": "41 -6 52 10"
+          }
+        },
+        "creator": {
+          "@type": "GovernmentOrganization",
+          "name": "Observatoire national interministériel de la sécurité routière (ONISR)"
+        },
+        "publisher": {
+          "@type": "GovernmentOrganization",
+          "name": "Ministère de l'Intérieur",
+          "url": "https://www.data.gouv.fr/organizations/ministere-de-linterieur"
+        },
+        "includedInDataCatalog": {
+          "@type": "DataCatalog",
+          "name": "data.gouv.fr",
+          "url": "https://www.data.gouv.fr"
+        },
+        "isBasedOn": "https://www.data.gouv.fr/fr/datasets/53698f4ca3a729239d2036df/",
+        "variableMeasured": [
+          { "@type": "PropertyValue", "name": "Injury severity", "description": "Worst injury outcome recorded for the accident: fatal, hospitalized, or minor" },
+          { "@type": "PropertyValue", "name": "Weather condition", "description": "Atmospheric conditions at the time of the accident: clear, rain, heavy rain, fog, snow, wind, glare, overcast" },
+          { "@type": "PropertyValue", "name": "Lighting condition", "description": "Daylight, dusk/dawn, night with street lighting, or night without lighting" },
+          { "@type": "PropertyValue", "name": "Hour of day", "description": "Hour the accident was recorded, 0–23" },
+          { "@type": "PropertyValue", "name": "Location", "description": "WGS84 latitude and longitude of the accident" },
+          { "@type": "PropertyValue", "name": "Department", "description": "French administrative department code" }
+        ]
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://datagouv-3d-viz.vercel.app/#app",
+        "name": "Accidents de France",
+        "url": "https://datagouv-3d-viz.vercel.app/",
+        "description": "Interactive 3D map of French road accidents, filterable by year, hour of day and weather condition.",
+        "applicationCategory": "DataVisualizationApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires a browser with WebGL support",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "screenshot": "https://datagouv-3d-viz.vercel.app/preview.jpg",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        },
+        "about": { "@id": "https://datagouv-3d-viz.vercel.app/#dataset" }
+      }
+    ]
+  }
+  </script>
   <style>
     @font-face {
       font-family: 'DIN 1451 Mittelschrift';
-      src: url('/fonts/din1451alt.ttf') format('truetype');
+      src: url('/fonts/din1451alt.woff2') format('woff2'),
+           url('/fonts/din1451alt.ttf') format('truetype');
       font-weight: normal;
       font-style: normal;
       font-display: swap;
     }
     @font-face {
       font-family: 'DIN 1451 Mittelschrift';
-      src: url('/fonts/din1451alt G.ttf') format('truetype');
+      src: url('/fonts/din1451alt-g.woff2') format('woff2'),
+           url('/fonts/din1451alt G.ttf') format('truetype');
       font-weight: bold;
       font-style: normal;
       font-display: swap;

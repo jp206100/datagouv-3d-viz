@@ -38,9 +38,14 @@ npm install
 ### Fetch Data
 
 ```bash
-npm run fetch-data   # Download BAAC accident CSVs → public/data/accidents.json
+npm run fetch-data   # Download BAAC accident CSVs → public/data/accidents.bin.gz
 npm run fetch-geo    # Fetch France geographic boundaries
 ```
+
+`fetch-data` joins the yearly `caracteristiques` and `usagers` CSVs, then packs the
+result into a columnar binary file (see `src/data/accident-codec.js`). The committed
+`accidents.bin.gz` is ~0.7 MB, versus ~95 MB of source CSV or ~27 MB as JSON — this is
+what the browser downloads. Re-run it to refresh the data when a new year is published.
 
 ### Development
 
@@ -48,7 +53,10 @@ npm run fetch-geo    # Fetch France geographic boundaries
 npm run dev
 ```
 
-Opens at `http://localhost:3000` with hot module reloading. On first run, the app tries to load cached data from `/data/accidents.json`; if not found, it downloads CSVs directly from data.gouv.fr in the browser.
+Opens at `http://localhost:3000` with hot module reloading. The app loads the packed
+dataset from `/data/accidents.bin.gz`; if that is missing it falls back to a legacy
+`/data/accidents.json`, and failing that it downloads the CSVs from data.gouv.fr in the
+browser (slow — several tens of megabytes).
 
 ### Production Build
 
@@ -75,13 +83,16 @@ src/
 ├── utils/          # Geographic coordinate conversion
 └── main.js         # Entry point and application state
 scripts/
-├── fetch-accidents.js  # Download BAAC data → public/data/accidents.json
+├── fetch-accidents.js  # Download BAAC data → public/data/accidents.bin.gz
 └── fetch-france-geo.js # Fetch France geographic boundaries
 ```
 
 ## How It Works
 
-1. **Data loading** — real BAAC accident records (2020–2024) are fetched from data.gouv.fr, either from a pre-cached JSON file or by downloading and parsing CSV files directly in the browser
+1. **Data loading** — real BAAC accident records (2020–2024) are read from a pre-packed
+   binary file committed to the repo, decompressed in the browser via `DecompressionStream`
+   and decoded straight into typed arrays; downloading and parsing the source CSVs in the
+   browser remains as a fallback
 2. **GPU rendering** — all particles live in a single `BufferGeometry` with per-particle attributes (position, severity, year, hour, weather); filtering happens entirely on the GPU via shader uniforms
 3. **Road overlay** — French autoroute network rendered as tube geometry with labeled city markers
 4. **Atmosphere** — scene background, fog, and light colors interpolate based on the selected hour to simulate day/dusk/night cycles
